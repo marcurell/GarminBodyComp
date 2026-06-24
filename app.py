@@ -1,23 +1,24 @@
-import streamlit as st
-import pandas as pd
-import sys
+import html
+import logging
 import os
+import sys
+
+import pandas as pd
 import plotly.graph_objects as go
+import streamlit as st
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+logging.basicConfig(level=logging.WARNING)
 
 st.set_page_config(page_title="Body Comp: Modular AI", page_icon="🧩", layout="wide")
 
-def load_css():
-    st.markdown("""
-    <style>
-        .consensus-box { padding: 15px; border-radius: 10px; background-color: #e3f2fd; border-left: 5px solid #2196f3; }
-        .stMetric { background-color: #f9f9f9; padding: 10px; border-radius: 5px; }
-    </style>
-    """, unsafe_allow_html=True)
-
-load_css()
+st.markdown("""
+<style>
+    .consensus-box { padding: 15px; border-radius: 10px; background-color: #e3f2fd; border-left: 5px solid #2196f3; }
+    .stMetric { background-color: #f9f9f9; padding: 10px; border-radius: 5px; }
+</style>
+""", unsafe_allow_html=True)
 
 try:
     from modules.data_handler import parse_garmin_custom_csv, clean_and_map_columns
@@ -26,22 +27,19 @@ try:
     from modules.auth import require_login, get_current_user, logout_button
     from modules.storage import load_measurements, save_measurements, load_garmin_data, save_garmin_data
 except ImportError as e:
-    st.error(f"Kritiskt fel: Kunde inte ladda moduler. Felmeddelande: {e}")
+    st.error("Kritiskt fel: Kunde inte ladda moduler. Kontakta admin.")
+    logging.critical("Module import failed: %s", e)
     st.stop()
 
-# ==========================================
-# AUTH — blocks rendering until logged in
-# ==========================================
+# ── Auth ────────────────────────────────────────────────────────────────────
 require_login()
 user_id = get_current_user()
 
 st.title("🧩 True Body Comp: Modular & Connected")
 
-# ==========================================
-# STATE & CACHING
-# ==========================================
+# ── State ───────────────────────────────────────────────────────────────────
 if "data" not in st.session_state:
-    st.session_state.data = load_garmin_data(user_id)  # restore from blob on refresh
+    st.session_state.data = load_garmin_data(user_id)
 if "measurements" not in st.session_state:
     st.session_state.measurements = load_measurements(user_id)
 
@@ -49,61 +47,66 @@ if "measurements" not in st.session_state:
 def cached_triangulation(df, meas, height, gender):
     return run_triangulation(df, meas, height, gender)
 
-# ==========================================
-# SIDEBAR: DATA INPUT
-# ==========================================
+MAX_CSV_BYTES = 10 * 1024 * 1024  # 10 MB
+
+# ── Sidebar ──────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.header("1. Hämta Data")
 
     source_tab1, source_tab2 = st.tabs(["☁️ Garmin Cloud", "📂 CSV Fil"])
 
     with source_tab1:
-        st.info("Logga in med ditt Garmin-konto.")
+        st.info("Dina Garmin-uppgifter skickas krypterat (HTTPS) och lagras aldrig.")
         with st.form("garmin_login"):
             email = st.text_input("E-mail")
             password = st.text_input("Lösenord", type="password")
             days = st.number_input("Hämta antal dagar", 30, 365, 60)
 
             if st.form_submit_button("Hämta från Cloud"):
-                if not email or not password:
-                    st.error("Ange e-post och lösenord.")
+                if not email or "@" not in email:
+                    st.error("Ange en giltig e-postadress.")
+                elif not password:
+                    st.error("Ange lösenord.")
                 else:
                     with st.spinner("Ansluter till Garmin..."):
-                        df_api, error = fetch_garmin_data(email, password, days, user_id)
+                        df_api, error = fetch_garmin_data(email, password, int(days), user_id)
                         if df_api is not None:
                             cleaned = clean_and_map_columns(df_api)
                             st.session_state.data = cleaned
-                            save_garmin_data(user_id, cleaned)  # persist across refreshes
+                            save_garmin_data(user_id, cleaned)
                             st.success(f"Klart! Hämtade {len(df_api)} mätningar.")
                         else:
-                            st.error(f"Fel vid hämtning: {error}")
+                            st.error(error)
 
     with source_tab2:
         uploaded_file = st.file_uploader("Ladda upp CSV", type=["csv"])
         if uploaded_file:
-            try:
-                content = uploaded_file.getvalue().decode("utf-8", errors="replace")
-                raw_input = parse_garmin_custom_csv(content)
-                if raw_input is None:
-                    uploaded_file.seek(0)
-                    raw_input = pd.read_csv(uploaded_file, skiprows=20, on_bad_lines="skip")
-                st.session_state.data = clean_and_map_columns(raw_input)
-                st.success("CSV Inläst!")
-            except Exception as e:
-                st.error(f"Kunde inte läsa filen: {e}")
+            if uploaded_file.size > MAX_CSV_BYTES:
+                st.error("Filen är för stor (max 10 MB).")
+            else:
+                try:
+                    content = uploaded_file.getvalue().decode("utf-8", errors="replace")
+                    raw_input = parse_garmin_custom_csv(content)
+                    if raw_input is None:
+                        uploaded_file.seek(0)
+                        raw_input = pd.read_csv(uploaded_file, skiprows=20, on_bad_lines="skip")
+                    st.session_state.data = clean_and_map_columns(raw_input)
+                    st.success("CSV inläst!")
+                except Exception:
+                    st.error("Kunde inte läsa filen. Kontrollera att det är en giltig Garmin CSV-fil.")
 
     st.divider()
 
     st.header("2. Fysiska Data")
-    height = st.number_input("Din Längd (cm)", 150, 220, 180)
+    height = st.number_input("Din Längd (cm)", min_value=100, max_value=250, value=180)
     gender = st.radio("Kön", ["Man", "Kvinna"])
 
     st.header("3. Måttband (Ankare)")
     with st.form("tape_measure"):
         m_date = st.date_input("Datum", datetime.now())
-        m_waist = st.number_input("Midjemått (cm)", 50, 150, 90)
-        m_neck = st.number_input("Halsmått (cm)", 20, 60, 40)
-        m_hip = st.number_input("Höftmått (cm) [0 = Frivilligt]", 0, 150, 0)
+        m_waist = st.number_input("Midjemått (cm)", min_value=30, max_value=200, value=90)
+        m_neck = st.number_input("Halsmått (cm)", min_value=10, max_value=100, value=40)
+        m_hip = st.number_input("Höftmått (cm) [0 = Frivilligt]", min_value=0, max_value=200, value=0)
 
         if st.form_submit_button("Spara Mätning"):
             new_m = pd.DataFrame([{
@@ -115,7 +118,6 @@ with st.sidebar:
             else:
                 combined = pd.concat([st.session_state.measurements, new_m])
                 updated_df = combined.drop_duplicates(subset="Date", keep="last").sort_values("Date")
-
             st.session_state.measurements = updated_df
             save_measurements(user_id, updated_df)
             st.success("Sparat!")
@@ -133,9 +135,7 @@ with st.sidebar:
     st.divider()
     logout_button()
 
-# ==========================================
-# MAIN APP LOGIC
-# ==========================================
+# ── Main ─────────────────────────────────────────────────────────────────────
 if st.session_state.data is not None:
     df = st.session_state.data
     meas = st.session_state.measurements
@@ -152,11 +152,16 @@ if st.session_state.data is not None:
         prev = processed_df.iloc[-2] if len(processed_df) > 1 else latest
         bias = latest.get("Bias_Offset", 0)
 
+        # Escape all values before injecting into HTML
+        consensus_pct = html.escape(f"{latest.get('Consensus_Fat_Pct', 0):.1f}")
+        garmin_pct = html.escape(f"{latest.get('fat_pct', 0):.1f}")
+        bias_str = html.escape(f"{bias:+.1f}")
+
         st.markdown(f"""
         <div class="consensus-box">
             <h3>🤖 Triangulerings-Analys</h3>
-            <p><b>SLUTSATS:</b> Din sanna fettprocent är sannolikt <b>{latest.get('Consensus_Fat_Pct', 0):.1f}%</b>.</p>
-            <small>Garmin visade {latest.get('fat_pct', 0):.1f}% (Avvikelse {bias:+.1f}%)</small>
+            <p><b>SLUTSATS:</b> Din sanna fettprocent är sannolikt <b>{consensus_pct}%</b>.</p>
+            <small>Garmin visade {garmin_pct}% (Avvikelse {bias_str}%)</small>
         </div>
         """, unsafe_allow_html=True)
 
@@ -176,11 +181,8 @@ if st.session_state.data is not None:
             if "Navy_Fat_Pct" in processed_df.columns:
                 fig.add_trace(go.Scatter(x=processed_df["Date"], y=processed_df["Navy_Fat_Pct"], name="Navy (Måttband)", line=dict(color="#1976d2", width=2)))
             fig.add_trace(go.Scatter(x=processed_df["Date"], y=processed_df["Consensus_Fat_Pct"], name="★ CONSENSUS", line=dict(color="#2e7d32", width=4)))
-            fig.update_layout(
-                title="Jakten på Sanningen",
-                hovermode="x unified",
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-            )
+            fig.update_layout(title="Jakten på Sanningen", hovermode="x unified",
+                              legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
             st.plotly_chart(fig, use_container_width=True)
 
         with tab2:

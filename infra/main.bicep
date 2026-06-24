@@ -9,13 +9,13 @@ param location string = resourceGroup().location
 param sku string = 'B1'
 
 @secure()
-param authUsername string = 'lars'
+param authUsername string
 
 @secure()
 param authPassword string
 
 @secure()
-param authCookieKey string
+param tokenEncryptionKey string
 
 var planName = '${appName}-plan'
 var siteName = appName
@@ -45,8 +45,6 @@ resource userDataContainer 'Microsoft.Storage/storageAccounts/blobServices/conta
   properties: { publicAccess: 'None' }
 }
 
-var storageConnectionString = 'DefaultEndpointsProtocol=https;AccountName=${storageAccountName};AccountKey=${storageAccount.listKeys().keys[0].value};EndpointSuffix=core.windows.net'
-
 // ── App Service Plan ───────────────────────────────────────────────────────
 resource appServicePlan 'Microsoft.Web/serverfarms@2023-01-01' = {
   name: planName
@@ -56,7 +54,7 @@ resource appServicePlan 'Microsoft.Web/serverfarms@2023-01-01' = {
   properties: { reserved: true }
 }
 
-// ── App Service (with system-assigned Managed Identity) ────────────────────
+// ── App Service (system-assigned Managed Identity) ─────────────────────────
 resource appService 'Microsoft.Web/sites@2023-01-01' = {
   name: siteName
   location: location
@@ -69,13 +67,14 @@ resource appService 'Microsoft.Web/sites@2023-01-01' = {
       linuxFxVersion: 'PYTHON|3.11'
       appCommandLine: 'python -m streamlit run app.py --server.port 8000 --server.address 0.0.0.0 --server.headless true'
       appSettings: [
-        { name: 'WEBSITES_PORT',                    value: '8000' }
-        { name: 'SCM_DO_BUILD_DURING_DEPLOYMENT',   value: 'true' }
-        // Key Vault references — Azure resolves these at runtime
-        { name: 'AZURE_STORAGE_CONNECTION_STRING',  value: '@Microsoft.KeyVault(SecretUri=${keyVault::secretStorage.properties.secretUri})' }
-        { name: 'AUTH_USERNAME',                    value: '@Microsoft.KeyVault(SecretUri=${keyVault::secretUsername.properties.secretUri})' }
-        { name: 'AUTH_PASSWORD',                    value: '@Microsoft.KeyVault(SecretUri=${keyVault::secretPassword.properties.secretUri})' }
-        { name: 'AUTH_COOKIE_KEY',                  value: '@Microsoft.KeyVault(SecretUri=${keyVault::secretCookieKey.properties.secretUri})' }
+        { name: 'WEBSITES_PORT',                  value: '8000' }
+        { name: 'SCM_DO_BUILD_DURING_DEPLOYMENT', value: 'true' }
+        // Storage account name only — no keys. Access via Managed Identity.
+        { name: 'AZURE_STORAGE_ACCOUNT_NAME',     value: storageAccountName }
+        // Secrets resolved from Key Vault at runtime
+        { name: 'AUTH_USERNAME',                  value: '@Microsoft.KeyVault(SecretUri=${keyVault::secretUsername.properties.secretUri})' }
+        { name: 'AUTH_PASSWORD',                  value: '@Microsoft.KeyVault(SecretUri=${keyVault::secretPassword.properties.secretUri})' }
+        { name: 'TOKEN_ENCRYPTION_KEY',           value: '@Microsoft.KeyVault(SecretUri=${keyVault::secretTokenKey.properties.secretUri})' }
       ]
     }
     httpsOnly: true
@@ -89,14 +88,9 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
   properties: {
     sku: { family: 'A', name: 'standard' }
     tenantId: subscription().tenantId
-    enableRbacAuthorization: true  // use RBAC instead of access policies
+    enableRbacAuthorization: true
     enableSoftDelete: true
     softDeleteRetentionInDays: 7
-  }
-
-  resource secretStorage 'secrets' = {
-    name: 'storage-connection-string'
-    properties: { value: storageConnectionString }
   }
 
   resource secretUsername 'secrets' = {
@@ -109,14 +103,14 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
     properties: { value: authPassword }
   }
 
-  resource secretCookieKey 'secrets' = {
-    name: 'auth-cookie-key'
-    properties: { value: authCookieKey }
+  resource secretTokenKey 'secrets' = {
+    name: 'token-encryption-key'
+    properties: { value: tokenEncryptionKey }
   }
 }
 
-// ── Grant App Service Managed Identity read access to Key Vault ────────────
-// Built-in role: Key Vault Secrets User = 4633458b-17de-408a-b874-0445c86b69e6
+// ── Grant App Service read access to Key Vault secrets ────────────────────
+// Built-in: Key Vault Secrets User = 4633458b-17de-408a-b874-0445c86b69e6
 resource kvSecretsUserRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(keyVault.id, appService.id, '4633458b-17de-408a-b874-0445c86b69e6')
   scope: keyVault
@@ -127,7 +121,20 @@ resource kvSecretsUserRole 'Microsoft.Authorization/roleAssignments@2022-04-01' 
   }
 }
 
+// ── Grant App Service read/write access to Blob Storage ───────────────────
+// Built-in: Storage Blob Data Contributor = ba92f5b4-2d11-453d-a403-e96b0029c9fe
+resource storageBlobRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(storageAccount.id, appService.id, 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')
+  scope: storageAccount
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')
+    principalId: appService.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
 // ── Outputs ────────────────────────────────────────────────────────────────
 output appUrl string = 'https://${appService.properties.defaultHostName}'
 output appName string = appService.name
 output keyVaultName string = keyVault.name
+output storageAccountName string = storageAccount.name

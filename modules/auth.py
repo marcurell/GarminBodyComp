@@ -5,17 +5,25 @@ import streamlit_authenticator as stauth
 
 # ---------------------------------------------------------------------------
 # Auth module with persistent browser cookie (30-day session).
+# Fails loudly if required env vars are missing — no insecure defaults.
 #
 # To expand to multi-user later:
-#   - Build the credentials dict from a database instead of env vars.
+#   - Build credentials dict from a database instead of env vars.
 #   - get_current_user() already returns a user_id that flows through
 #     the rest of the app — no other changes needed.
 # ---------------------------------------------------------------------------
 
+def _require_env(name: str) -> str:
+    value = os.environ.get(name)
+    if not value:
+        st.error(f"Konfigurationsfel: miljövariabeln {name} saknas. Kontakta admin.")
+        st.stop()
+    return value
+
+
 def _build_authenticator() -> stauth.Authenticate:
-    username = os.environ.get("AUTH_USERNAME", "lars")
-    raw_password = os.environ.get("AUTH_PASSWORD", "")
-    cookie_key = os.environ.get("AUTH_COOKIE_KEY", "change-me-in-azure")
+    username = _require_env("AUTH_USERNAME")
+    raw_password = _require_env("AUTH_PASSWORD")
 
     hashed = bcrypt.hashpw(raw_password.encode()[:72], bcrypt.gensalt()).decode()
 
@@ -28,10 +36,11 @@ def _build_authenticator() -> stauth.Authenticate:
         }
     }
 
+    # streamlit-authenticator 0.3.x removed the cookie signing key parameter.
+    # Cookie expiry is the only configurable option now.
     return stauth.Authenticate(
         credentials,
         cookie_name="bodycomp_session",
-        key=cookie_key,
         cookie_expiry_days=30,
     )
 
@@ -55,7 +64,7 @@ def require_login() -> None:
 
 
 def get_current_user() -> str:
-    return st.session_state.get("user_id", "lars")
+    return st.session_state.get("user_id", "")
 
 
 def logout_button() -> None:

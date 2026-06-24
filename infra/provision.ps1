@@ -1,12 +1,13 @@
 # provision.ps1 — Run this once to create all Azure resources
 #
 # Prerequisites:
-#   - Azure CLI installed and logged in:
-#       az login --tenant a6017aee-56d1-484c-9b5a-5df2ab8d58fa
-#       az account set --subscription 63621c47-1b51-4ac6-b577-9018793b8382
+#   az login --tenant a6017aee-56d1-484c-9b5a-5df2ab8d58fa
+#   az account set --subscription 63621c47-1b51-4ac6-b577-9018793b8382
 #
 # Usage:
-#   .\infra\provision.ps1 -ResourceGroup "garmin-rg" -AuthPassword "secret" -AuthCookieKey "random-string"
+#   .\infra\provision.ps1 -ResourceGroup "garmin-rg" -AuthPassword "yourpassword"
+#
+# TOKEN_ENCRYPTION_KEY is auto-generated if not provided.
 
 param(
     [Parameter(Mandatory=$true)]  [string]$ResourceGroup,
@@ -15,13 +16,22 @@ param(
     [Parameter(Mandatory=$false)] [string]$Sku = "B1",
     [Parameter(Mandatory=$false)] [string]$AuthUsername = "lars",
     [Parameter(Mandatory=$true)]  [string]$AuthPassword,
-    [Parameter(Mandatory=$true)]  [string]$AuthCookieKey
+    [Parameter(Mandatory=$false)] [string]$TokenEncryptionKey = ""
 )
+
+# Auto-generate a Fernet-compatible key if not provided
+if (-not $TokenEncryptionKey) {
+    $bytes = [System.Security.Cryptography.RandomNumberGenerator]::GetBytes(32)
+    $TokenEncryptionKey = [Convert]::ToBase64String($bytes).Replace('+', '-').Replace('/', '_').TrimEnd('=')
+    Write-Host "Generated TOKEN_ENCRYPTION_KEY: $TokenEncryptionKey"
+    Write-Host "IMPORTANT: Save this key somewhere safe. You will need it if you re-provision."
+    Write-Host ""
+}
 
 Write-Host "Creating resource group '$ResourceGroup' in '$Location'..."
 az group create --name $ResourceGroup --location $Location
 
-Write-Host "Deploying Bicep template (App Service + Storage + Key Vault)..."
+Write-Host "Deploying Bicep template..."
 az deployment group create `
     --resource-group $ResourceGroup `
     --template-file "$PSScriptRoot\main.bicep" `
@@ -30,15 +40,17 @@ az deployment group create `
         sku=$Sku `
         authUsername=$AuthUsername `
         authPassword=$AuthPassword `
-        authCookieKey=$AuthCookieKey `
+        tokenEncryptionKey=$TokenEncryptionKey `
     --output table
 
 Write-Host ""
-Write-Host "All done! Resources created:"
-Write-Host "  App Service : https://$AppName.azurewebsites.net"
-Write-Host "  Key Vault   : $AppName-kv"
-Write-Host "  Storage     : $($AppName.Replace('-',''))"
+Write-Host "Done! Resources created:"
+Write-Host "  App:       https://$AppName.azurewebsites.net"
+Write-Host "  Key Vault: $AppName-kv"
+Write-Host "  Storage:   $($AppName.Replace('-',''))"
 Write-Host ""
-Write-Host "Next: update the GitHub publish profile secret if this is a fresh deployment."
+Write-Host "Next: update publish profile secret in GitHub."
 Write-Host "  1. Azure Portal -> App Services -> $AppName -> Download publish profile"
-Write-Host "  2. GitHub -> Settings -> Secrets -> AZURE_WEBAPP_PUBLISH_PROFILE"
+Write-Host "  2. GitHub -> Settings -> Secrets -> AZURE_WEBAPP_PUBLISH_PROFILE (update value)"
+Write-Host ""
+Write-Host "Reminder: Rotate AuthPassword and TokenEncryptionKey every 90 days."
