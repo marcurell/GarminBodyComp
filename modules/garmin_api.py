@@ -8,23 +8,27 @@ TOKEN_DIR = ".garmin_tokens"
 TOKEN_PATH = os.path.join(TOKEN_DIR, "garmin_tokens")
 
 def init_garmin_client(email, password):
-    if not os.path.exists(TOKEN_DIR):
-        os.makedirs(TOKEN_DIR)
-
     try:
-        # 1. Försök logga in med sparade tokens först
-        if os.path.exists(TOKEN_DIR) and len(os.listdir(TOKEN_DIR)) > 0:
+        # Försök med sparade tokens om de finns
+        if os.path.exists(TOKEN_PATH):
             try:
                 garmin = Garmin()
                 garmin.login(TOKEN_PATH)
                 return garmin, None
             except Exception as e:
                 print(f"Token-fel, försöker logga in manuellt: {e}")
-        
-        # 2. Ny inloggning
+
+        # Ny inloggning
         garmin = Garmin(email, password)
-        garmin.login() 
-        garmin.garth.dump(TOKEN_PATH)
+        garmin.login()
+
+        # Spara tokens om möjligt (fungerar inte alltid i molnmiljö)
+        try:
+            os.makedirs(TOKEN_DIR, exist_ok=True)
+            garmin.garth.dump(TOKEN_PATH)
+        except Exception:
+            pass
+
         return garmin, None
 
     except Exception as e:

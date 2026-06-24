@@ -2,4 +2,4 @@ streamlit
 pandas
 numpy
 plotly
-garminconnect
+garminconnect>=0.2.0
