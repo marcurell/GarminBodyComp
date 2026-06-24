@@ -1,0 +1,19 @@
+# Garmin OAuth tokens (credentials - never commit these)
+.garmin_tokens/
+
+# Personal health data CSVs
+measurements_db.csv
+garmin_historik_db.csv
+Archive/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+
+# OS
+.DS_Store
+Thumbs.db
