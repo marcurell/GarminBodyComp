@@ -61,4 +61,4 @@ def get_current_user() -> str:
 def logout_button() -> None:
     authenticator: stauth.Authenticate | None = st.session_state.get("authenticator")
     if authenticator:
-        authenticator.logout("Logga ut", "sidebar")
+        authenticator.logout(location="sidebar")

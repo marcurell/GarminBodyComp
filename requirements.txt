@@ -4,5 +4,5 @@ numpy
 plotly
 garminconnect>=0.2.0
 azure-storage-blob
-streamlit-authenticator
+streamlit-authenticator==0.3.3
 bcrypt
