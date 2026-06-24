@@ -21,7 +21,10 @@ param(
 
 # Auto-generate a Fernet-compatible key if not provided
 if (-not $TokenEncryptionKey) {
-    $bytes = [System.Security.Cryptography.RandomNumberGenerator]::GetBytes(32)
+    $rng = [System.Security.Cryptography.RNGCryptoServiceProvider]::new()
+    $bytes = New-Object byte[] 32
+    $rng.GetBytes($bytes)
+    $rng.Dispose()
     $TokenEncryptionKey = [Convert]::ToBase64String($bytes).Replace('+', '-').Replace('/', '_').TrimEnd('=')
     Write-Host "Generated TOKEN_ENCRYPTION_KEY: $TokenEncryptionKey"
     Write-Host "IMPORTANT: Save this key somewhere safe. You will need it if you re-provision."
