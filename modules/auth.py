@@ -43,7 +43,7 @@ def require_login() -> None:
 
     authenticator: stauth.Authenticate = st.session_state["authenticator"]
 
-    name, auth_status, username = authenticator.login("Logga in", "main")
+    name, auth_status, username = authenticator.login(location="main")
 
     if auth_status is False:
         st.error("Fel användarnamn eller lösenord.")
