@@ -17,7 +17,7 @@ def _build_authenticator() -> stauth.Authenticate:
     raw_password = os.environ.get("AUTH_PASSWORD", "")
     cookie_key = os.environ.get("AUTH_COOKIE_KEY", "change-me-in-azure")
 
-    hashed = bcrypt.hashpw(raw_password.encode(), bcrypt.gensalt()).decode()
+    hashed = bcrypt.hashpw(raw_password.encode()[:72], bcrypt.gensalt()).decode()
 
     credentials = {
         "usernames": {
