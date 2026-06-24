@@ -23,8 +23,8 @@ try:
     from modules.data_handler import parse_garmin_custom_csv, clean_and_map_columns
     from modules.logic import run_triangulation
     from modules.garmin_api import fetch_garmin_data
-    from modules.auth import require_login, get_current_user
-    from modules.storage import load_measurements, save_measurements
+    from modules.auth import require_login, get_current_user, logout_button
+    from modules.storage import load_measurements, save_measurements, load_garmin_data, save_garmin_data
 except ImportError as e:
     st.error(f"Kritiskt fel: Kunde inte ladda moduler. Felmeddelande: {e}")
     st.stop()
@@ -41,7 +41,7 @@ st.title("🧩 True Body Comp: Modular & Connected")
 # STATE & CACHING
 # ==========================================
 if "data" not in st.session_state:
-    st.session_state.data = None
+    st.session_state.data = load_garmin_data(user_id)  # restore from blob on refresh
 if "measurements" not in st.session_state:
     st.session_state.measurements = load_measurements(user_id)
 
@@ -71,7 +71,9 @@ with st.sidebar:
                     with st.spinner("Ansluter till Garmin..."):
                         df_api, error = fetch_garmin_data(email, password, days, user_id)
                         if df_api is not None:
-                            st.session_state.data = clean_and_map_columns(df_api)
+                            cleaned = clean_and_map_columns(df_api)
+                            st.session_state.data = cleaned
+                            save_garmin_data(user_id, cleaned)  # persist across refreshes
                             st.success(f"Klart! Hämtade {len(df_api)} mätningar.")
                         else:
                             st.error(f"Fel vid hämtning: {error}")
@@ -129,9 +131,7 @@ with st.sidebar:
                 st.rerun()
 
     st.divider()
-    if st.button("Logga ut"):
-        st.session_state.clear()
-        st.rerun()
+    logout_button()
 
 # ==========================================
 # MAIN APP LOGIC

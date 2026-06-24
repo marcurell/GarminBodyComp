@@ -83,3 +83,22 @@ def upload_tokens(user_id: str, local_dir: str) -> None:
         if os.path.exists(path):
             with open(path, "rb") as f:
                 _blob(user_id, f"garmin_tokens/{fname}").upload_blob(f, overwrite=True)
+
+
+# --- Garmin body composition data -------------------------------------------
+
+def save_garmin_data(user_id: str, df: pd.DataFrame) -> None:
+    buf = io.BytesIO()
+    df.to_csv(buf, index=False)
+    buf.seek(0)
+    _blob(user_id, "garmin_data.csv").upload_blob(buf, overwrite=True)
+
+
+def load_garmin_data(user_id: str) -> pd.DataFrame | None:
+    try:
+        data = _blob(user_id, "garmin_data.csv").download_blob().readall()
+        df = pd.read_csv(io.BytesIO(data))
+        df["Date"] = pd.to_datetime(df["Date"])
+        return df
+    except Exception:
+        return None
