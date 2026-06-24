@@ -2,105 +2,83 @@ from garminconnect import Garmin
 import pandas as pd
 from datetime import date, timedelta
 import os
+import tempfile
 
-# Mapp för att spara inloggningstokens
-TOKEN_DIR = ".garmin_tokens"
-TOKEN_PATH = os.path.join(TOKEN_DIR, "garmin_tokens")
+from modules.storage import download_tokens, upload_tokens
 
-def init_garmin_client(email, password):
-    try:
-        # Försök med sparade tokens om de finns
-        if os.path.exists(TOKEN_PATH):
+TOKEN_SUBDIR = "garmin_tokens"
+
+
+def init_garmin_client(email: str, password: str, user_id: str = "lars"):
+    with tempfile.TemporaryDirectory() as tmp:
+        token_path = os.path.join(tmp, TOKEN_SUBDIR)
+        os.makedirs(token_path, exist_ok=True)
+
+        # Try saved tokens from blob storage first
+        if download_tokens(user_id, token_path):
             try:
                 garmin = Garmin()
-                garmin.login(TOKEN_PATH)
+                garmin.login(token_path)
                 return garmin, None
             except Exception as e:
                 print(f"Token-fel, försöker logga in manuellt: {e}")
 
-        # Ny inloggning
+        # Fresh login
         garmin = Garmin(email, password)
         garmin.login()
 
-        # Spara tokens om möjligt (fungerar inte alltid i molnmiljö)
+        # Persist tokens back to blob storage
         try:
-            os.makedirs(TOKEN_DIR, exist_ok=True)
-            garmin.garth.dump(TOKEN_PATH)
-        except Exception:
-            pass
+            garmin.garth.dump(token_path)
+            upload_tokens(user_id, token_path)
+        except Exception as e:
+            print(f"Kunde inte spara tokens: {e}")
 
         return garmin, None
 
-    except Exception as e:
-        return None, str(e)
 
-def fetch_garmin_data(email, password, days_back=30):
+def fetch_garmin_data(email: str, password: str, days_back: int = 30, user_id: str = "lars"):
     try:
-        client, error = init_garmin_client(email, password)
+        client, error = init_garmin_client(email, password, user_id)
         if not client:
             return None, f"Login Error: {error}"
-        
+
         start_date = date.today() - timedelta(days=days_back)
         end_date = date.today()
-        
+
         stats = client.get_body_composition(start_date.isoformat(), end_date.isoformat())
-        
+
         data_rows = []
-        if 'dateWeightList' in stats:
-            for entry in stats['dateWeightList']:
-                # --- SÄKER LOGIK ---
-                # Hämta värden, men om de är None, sätt dem till 0 direkt.
-                
-                # Vikt
-                w = entry.get('weight')
-                if w is None: w = 0.0
-                else: w = float(w)
-                
-                # Konvertera gram till kg om det behövs
-                if w > 200: w = w / 1000.0
-                
-                # Benmassa
-                b = entry.get('boneMass')
-                if b is None: b = 0.0
-                else: b = float(b)
-                
-                if b > 20: b = b / 1000.0
-                
-                # Muskelmassa
-                m = entry.get('muscleMass')
-                if m is None: m = 0.0
-                else: m = float(m)
-                
-                if m > 100: m = m / 1000.0
+        if "dateWeightList" in stats:
+            for entry in stats["dateWeightList"]:
+                w = entry.get("weight") or 0.0
+                w = float(w)
+                if w > 200: w /= 1000.0
 
-                # Fett %
-                f = entry.get('bodyFat')
-                if f is None: f = 0.0
-                else: f = float(f)
-                
-                # Vatten %
-                wa = entry.get('bodyWater')
-                if wa is None: wa = 0.0
-                else: wa = float(wa)
+                b = entry.get("boneMass") or 0.0
+                b = float(b)
+                if b > 20: b /= 1000.0
 
-                row = {
-                    'Date': pd.to_datetime(entry.get('date') or entry.get('startDate')),
-                    'weight_kg': w,
-                    'bone_kg': b,
-                    'muscle_kg': m,
-                    'fat_pct': f,
-                    'water_pct': wa
-                }
-                
-                # Spara bara om vi faktiskt har en vikt
+                m = entry.get("muscleMass") or 0.0
+                m = float(m)
+                if m > 100: m /= 1000.0
+
+                f = float(entry.get("bodyFat") or 0.0)
+                wa = float(entry.get("bodyWater") or 0.0)
+
                 if w > 0:
-                    data_rows.append(row)
-                
+                    data_rows.append({
+                        "Date": pd.to_datetime(entry.get("date") or entry.get("startDate")),
+                        "weight_kg": w,
+                        "bone_kg": b,
+                        "muscle_kg": m,
+                        "fat_pct": f,
+                        "water_pct": wa,
+                    })
+
         df = pd.DataFrame(data_rows)
-        
         if df.empty:
             return None, "Ingen data hittades."
-            
         return df, None
 
     except Exception as e:

@@ -2,7 +2,7 @@
 # Prerequisites: Azure CLI installed and logged in (az login)
 #
 # Usage:
-#   .\infra\provision.ps1 -ResourceGroup "garmin-rg" -AppName "garminbodycomp"
+#   .\infra\provision.ps1 -ResourceGroup "garmin-rg" -AppName "garminbodycomp" -AuthPassword "yourpassword"
 
 param(
     [Parameter(Mandatory=$true)]
@@ -15,7 +15,13 @@ param(
     [string]$Location = "westeurope",
 
     [Parameter(Mandatory=$false)]
-    [string]$Sku = "B1"
+    [string]$Sku = "B1",
+
+    [Parameter(Mandatory=$false)]
+    [string]$AuthUsername = "lars",
+
+    [Parameter(Mandatory=$true)]
+    [string]$AuthPassword
 )
 
 Write-Host "Creating resource group '$ResourceGroup' in '$Location'..."
@@ -25,7 +31,7 @@ Write-Host "Deploying Bicep template..."
 az deployment group create `
     --resource-group $ResourceGroup `
     --template-file "$PSScriptRoot\main.bicep" `
-    --parameters appName=$AppName sku=$Sku `
+    --parameters appName=$AppName sku=$Sku authUsername=$AuthUsername authPassword=$AuthPassword `
     --output table
 
 Write-Host ""

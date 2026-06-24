@@ -3,3 +3,4 @@ pandas
 numpy
 plotly
 garminconnect>=0.2.0
+azure-storage-blob
