@@ -5,12 +5,8 @@ import streamlit_authenticator as stauth
 
 # ---------------------------------------------------------------------------
 # Auth module with persistent browser cookie (30-day session).
+# Uses streamlit-authenticator 0.2.3 which has stable cookie support.
 # Fails loudly if required env vars are missing — no insecure defaults.
-#
-# To expand to multi-user later:
-#   - Build credentials dict from a database instead of env vars.
-#   - get_current_user() already returns a user_id that flows through
-#     the rest of the app — no other changes needed.
 # ---------------------------------------------------------------------------
 
 def _require_env(name: str) -> str:
@@ -24,6 +20,7 @@ def _require_env(name: str) -> str:
 def _build_authenticator() -> stauth.Authenticate:
     username = _require_env("AUTH_USERNAME")
     raw_password = _require_env("AUTH_PASSWORD")
+    cookie_key = _require_env("AUTH_COOKIE_KEY")
 
     hashed = bcrypt.hashpw(raw_password.encode()[:72], bcrypt.gensalt()).decode()
 
@@ -36,13 +33,12 @@ def _build_authenticator() -> stauth.Authenticate:
         }
     }
 
-    cookie_key = os.environ.get("AUTH_COOKIE_KEY", "bodycomp-default-key")
-
+    # 0.2.3 API: Authenticate(credentials, cookie_name, cookie_key, cookie_expiry_days)
     return stauth.Authenticate(
         credentials,
         "bodycomp_session",
         cookie_key,
-        30,
+        cookie_expiry_days=30,
     )
 
 
@@ -53,7 +49,7 @@ def require_login() -> None:
 
     authenticator: stauth.Authenticate = st.session_state["authenticator"]
 
-    name, auth_status, username = authenticator.login(location="main")
+    name, auth_status, username = authenticator.login("Logga in", "main")
 
     if auth_status is False:
         st.error("Fel användarnamn eller lösenord.")
@@ -71,4 +67,4 @@ def get_current_user() -> str:
 def logout_button() -> None:
     authenticator: stauth.Authenticate | None = st.session_state.get("authenticator")
     if authenticator:
-        authenticator.logout(location="sidebar")
+        authenticator.logout("Logga ut", "sidebar")

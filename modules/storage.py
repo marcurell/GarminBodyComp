@@ -104,8 +104,15 @@ def download_tokens(user_id: str, local_dir: str) -> bool:
     found = False
     for fname in TOKEN_FILES:
         try:
-            encrypted = _blob(user_id, f"garmin_tokens/{fname}").download_blob().readall()
-            plaintext = cipher.decrypt(encrypted)
+            data = _blob(user_id, f"garmin_tokens/{fname}").download_blob().readall()
+            try:
+                plaintext = cipher.decrypt(data)
+            except Exception:
+                # Token was stored unencrypted (before encryption was introduced).
+                # Treat as a cache miss so the app falls through to fresh login,
+                # which will re-upload with encryption.
+                logger.info("Token %s not decryptable, will re-authenticate", fname)
+                return False
             with open(os.path.join(local_dir, fname), "wb") as f:
                 f.write(plaintext)
             found = True
