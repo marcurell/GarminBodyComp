@@ -95,5 +95,5 @@ def fetch_garmin_data(email: str, password: str, days_back: int = 30, user_id: s
         return df, None
 
     except Exception as e:
-        logger.error("Garmin API call failed: %s", type(e).__name__)
+        logger.error("Garmin API call failed: %s", type(e).__name__, exc_info=True)
         return None, "Fel vid hämtning från Garmin. Försök igen."
