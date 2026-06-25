@@ -16,7 +16,18 @@ def require_login() -> None:
     """Verify Azure Easy Auth identity is present. Blocks if not authenticated."""
     user = _get_user_from_header()
     if not user:
-        st.error("Ingen autentisering hittades. Kontakta admin.")
+        st.markdown("""
+        <div style="text-align:center;padding:80px 20px;">
+            <div style="font-size:3rem;">🔐</div>
+            <h2 style="color:#FFFFFF;">Autentisering krävs</h2>
+            <p style="color:#8A94B8;margin-bottom:24px;">Du behöver logga in med ditt Google-konto för att fortsätta.</p>
+            <a href="/.auth/login/google?post_login_redirect_uri=/" target="_self"
+               style="background:#1DB9E8;color:#000;padding:12px 28px;border-radius:8px;
+                      font-weight:600;text-decoration:none;font-size:1rem;">
+               Logga in med Google
+            </a>
+        </div>
+        """, unsafe_allow_html=True)
         st.stop()
     st.session_state["user_id"] = user
 
@@ -42,14 +53,17 @@ def _get_user_from_header() -> str:
     try:
         headers = st.context.headers
         raw = headers.get("X-Ms-Client-Principal-Name", "")
-        return _sanitize_user_id(raw)
+        if raw:
+            return _sanitize_user_id(raw)
     except Exception:
-        return ""
+        pass
+    return ""
 
 
 def _sanitize_user_id(raw: str) -> str:
-    """Convert an email to a safe blob storage path segment.
-    e.g. lars@joyyoga.se -> lars_joyyoga_se
+    """Normalize email to a safe, stable blob path segment.
+    Keeps @ and . so existing data paths are preserved.
+    e.g. Lars@JoyYoga.SE -> lars@joyyoga.se
     """
     import re
-    return re.sub(r"[^a-z0-9_\-]", "_", raw.lower())
+    return re.sub(r"[^a-z0-9@._\-]", "_", raw.lower())
