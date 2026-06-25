@@ -1,3 +1,4 @@
+// Infra version: 2
 @description('Name prefix used for all resources (e.g. "garminbodycomp")')
 param appName string = 'garminbodycomp'
 
