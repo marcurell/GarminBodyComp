@@ -7,6 +7,10 @@ on:
       - 'infra/**'
   workflow_dispatch:
 
+concurrency:
+  group: azure-deploy
+  cancel-in-progress: false
+
 jobs:
   deploy-infra:
     runs-on: ubuntu-latest

@@ -3,9 +3,11 @@ name: Deploy App
 on:
   push:
     branches: [master]
-    paths-ignore:
-      - 'infra/**'
   workflow_dispatch:
+
+concurrency:
+  group: azure-deploy
+  cancel-in-progress: false
 
 jobs:
   deploy-app:
