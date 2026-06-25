@@ -26,10 +26,22 @@ st.markdown("""
     [data-testid="stSidebar"] { background-color: #1C1E26; border-right: 1px solid #2E3140; }
     [data-testid="stHeader"] { background-color: #111318; }
 
-    /* Typography */
+    /* Typography — high contrast throughout */
     html, body, [class*="css"] { color: #E8EAF0; }
-    h1, h2, h3 { color: #FFFFFF; font-weight: 700; letter-spacing: -0.5px; }
-    label, .stRadio label { color: #A0A8C0 !important; font-size: 0.85rem; }
+    p, span, div { color: #E8EAF0; }
+    h1, h2, h3 { color: #FFFFFF !important; font-weight: 700; letter-spacing: -0.5px; }
+
+    /* Labels — all labels bright and readable */
+    label { color: #C8CDE0 !important; font-size: 0.85rem !important; }
+    [data-testid="stSidebar"] label { color: #C8CDE0 !important; }
+
+    /* Radio buttons */
+    [data-testid="stRadio"] label { color: #E8EAF0 !important; font-size: 0.9rem !important; }
+    [data-testid="stRadio"] p { color: #E8EAF0 !important; }
+
+    /* Checkboxes and selects */
+    [data-testid="stSelectbox"] label,
+    [data-testid="stMultiSelect"] label { color: #C8CDE0 !important; }
 
     /* Metric cards */
     [data-testid="stMetric"] {
@@ -38,23 +50,32 @@ st.markdown("""
         border-radius: 12px;
         padding: 16px 20px;
     }
-    [data-testid="stMetricLabel"] { color: #6B7494 !important; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.8px; }
+    [data-testid="stMetricLabel"] { color: #8A94B8 !important; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.8px; }
     [data-testid="stMetricValue"] { color: #FFFFFF !important; font-size: 1.8rem; font-weight: 700; }
     [data-testid="stMetricDelta"] { font-size: 0.85rem; }
 
-    /* Inputs & forms */
+    /* Inputs — bright text on dark bg */
     [data-testid="stTextInput"] input,
-    [data-testid="stNumberInput"] input {
-        background-color: #1C1E26 !important;
-        border: 1px solid #2E3140 !important;
+    [data-testid="stNumberInput"] input,
+    [data-testid="stDateInput"] input {
+        background-color: #252830 !important;
+        border: 1px solid #3E4255 !important;
         border-radius: 8px !important;
-        color: #E8EAF0 !important;
+        color: #FFFFFF !important;
+        font-size: 0.95rem !important;
     }
+    [data-testid="stTextInput"] input::placeholder { color: #6B7494 !important; }
     [data-testid="stTextInput"] input:focus,
     [data-testid="stNumberInput"] input:focus {
         border-color: #1DB9E8 !important;
-        box-shadow: 0 0 0 2px rgba(29,185,232,0.15) !important;
+        box-shadow: 0 0 0 2px rgba(29,185,232,0.2) !important;
     }
+
+    /* Number input stepper buttons */
+    [data-testid="stNumberInput"] button { color: #E8EAF0 !important; background: #2E3140 !important; border: none !important; }
+
+    /* Date input */
+    [data-testid="stDateInput"] input { color: #FFFFFF !important; }
 
     /* Buttons */
     [data-testid="stFormSubmitButton"] button,
@@ -106,11 +127,23 @@ st.markdown("""
     [data-testid="stSidebar"] h2,
     [data-testid="stSidebar"] h3 { color: #1DB9E8; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; }
 
-    /* Info/warning/error boxes */
-    [data-testid="stInfo"] { background-color: #1a2535; border-color: #1DB9E8; color: #A0C8E8; }
-    [data-testid="stWarning"] { background-color: #2a2010; border-color: #F0A500; }
-    [data-testid="stSuccess"] { background-color: #102a15; border-color: #30D158; }
-    [data-testid="stError"] { background-color: #2a1010; border-color: #FF453A; }
+    /* Info/warning/error boxes — bright text */
+    [data-testid="stInfo"]    { background-color: #1a2535; border-color: #1DB9E8; color: #C8E8F8 !important; }
+    [data-testid="stInfo"] p  { color: #C8E8F8 !important; }
+    [data-testid="stWarning"] { background-color: #2a2010; border-color: #F0A500; color: #F8DCA0 !important; }
+    [data-testid="stWarning"] p { color: #F8DCA0 !important; }
+    [data-testid="stSuccess"] { background-color: #102a15; border-color: #30D158; color: #A0F0B8 !important; }
+    [data-testid="stSuccess"] p { color: #A0F0B8 !important; }
+    [data-testid="stError"]   { background-color: #2a1010; border-color: #FF453A; color: #F8A0A0 !important; }
+    [data-testid="stError"] p { color: #F8A0A0 !important; }
+
+    /* Expander */
+    [data-testid="stExpander"] { border: 1px solid #2E3140 !important; border-radius: 8px !important; }
+    [data-testid="stExpander"] summary { color: #C8CDE0 !important; }
+
+    /* Tabs text */
+    [data-testid="stTabs"] [role="tab"] { color: #8A94B8 !important; }
+    [data-testid="stTabs"] [role="tab"][aria-selected="true"] { color: #1DB9E8 !important; }
 </style>
 """, unsafe_allow_html=True)
 
