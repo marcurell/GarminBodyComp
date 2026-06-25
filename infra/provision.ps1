@@ -16,7 +16,8 @@ param(
     [Parameter(Mandatory=$false)] [string]$Sku = "B1",
     [Parameter(Mandatory=$false)] [string]$AuthUsername = "lars",
     [Parameter(Mandatory=$true)]  [string]$AuthPassword,
-    [Parameter(Mandatory=$false)] [string]$TokenEncryptionKey = ""
+    [Parameter(Mandatory=$false)] [string]$TokenEncryptionKey = "",
+    [Parameter(Mandatory=$false)] [string]$AuthCookieKey = ""
 )
 
 # Auto-generate a Fernet-compatible key if not provided
@@ -28,6 +29,16 @@ if (-not $TokenEncryptionKey) {
     $TokenEncryptionKey = [Convert]::ToBase64String($bytes).Replace('+', '-').Replace('/', '_').TrimEnd('=')
     Write-Host "Generated TOKEN_ENCRYPTION_KEY: $TokenEncryptionKey"
     Write-Host "IMPORTANT: Save this key somewhere safe. You will need it if you re-provision."
+    Write-Host ""
+}
+
+if (-not $AuthCookieKey) {
+    $rng2 = [System.Security.Cryptography.RNGCryptoServiceProvider]::new()
+    $bytes2 = New-Object byte[] 32
+    $rng2.GetBytes($bytes2)
+    $rng2.Dispose()
+    $AuthCookieKey = [Convert]::ToBase64String($bytes2).Replace('+', '-').Replace('/', '_').TrimEnd('=')
+    Write-Host "Generated AUTH_COOKIE_KEY (save this too): $AuthCookieKey"
     Write-Host ""
 }
 
@@ -44,6 +55,7 @@ az deployment group create `
         authUsername=$AuthUsername `
         authPassword=$AuthPassword `
         tokenEncryptionKey=$TokenEncryptionKey `
+        authCookieKey=$AuthCookieKey `
     --output table
 
 Write-Host ""

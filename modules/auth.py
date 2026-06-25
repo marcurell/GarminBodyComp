@@ -36,12 +36,13 @@ def _build_authenticator() -> stauth.Authenticate:
         }
     }
 
-    # streamlit-authenticator 0.3.x removed the cookie signing key parameter.
-    # Cookie expiry is the only configurable option now.
+    cookie_key = os.environ.get("AUTH_COOKIE_KEY", "bodycomp-default-key")
+
     return stauth.Authenticate(
         credentials,
-        cookie_name="bodycomp_session",
-        cookie_expiry_days=30,
+        "bodycomp_session",
+        cookie_key,
+        30,
     )
 
 

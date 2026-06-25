@@ -17,6 +17,9 @@ param authPassword string
 @secure()
 param tokenEncryptionKey string
 
+@secure()
+param authCookieKey string
+
 var planName = '${appName}-plan'
 var siteName = appName
 var storageAccountName = replace(toLower(appName), '-', '')
@@ -75,6 +78,7 @@ resource appService 'Microsoft.Web/sites@2023-01-01' = {
         { name: 'AUTH_USERNAME',                  value: '@Microsoft.KeyVault(SecretUri=${keyVault::secretUsername.properties.secretUri})' }
         { name: 'AUTH_PASSWORD',                  value: '@Microsoft.KeyVault(SecretUri=${keyVault::secretPassword.properties.secretUri})' }
         { name: 'TOKEN_ENCRYPTION_KEY',           value: '@Microsoft.KeyVault(SecretUri=${keyVault::secretTokenKey.properties.secretUri})' }
+        { name: 'AUTH_COOKIE_KEY',                value: '@Microsoft.KeyVault(SecretUri=${keyVault::secretCookieKey.properties.secretUri})' }
       ]
     }
     httpsOnly: true
@@ -106,6 +110,11 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
   resource secretTokenKey 'secrets' = {
     name: 'token-encryption-key'
     properties: { value: tokenEncryptionKey }
+  }
+
+  resource secretCookieKey 'secrets' = {
+    name: 'auth-cookie-key'
+    properties: { value: authCookieKey }
   }
 }
 
