@@ -26,8 +26,5 @@ jobs:
           resourceGroupName: ${{ secrets.AZURE_RESOURCE_GROUP }}
           template: infra/main.bicep
           parameters: >
-            authUsername=${{ secrets.AUTH_USERNAME }}
-            authPassword=${{ secrets.AUTH_PASSWORD }}
-            authCookieKey=${{ secrets.AUTH_COOKIE_KEY }}
             tokenEncryptionKey=${{ secrets.TOKEN_ENCRYPTION_KEY }}
           failOnStdErr: false

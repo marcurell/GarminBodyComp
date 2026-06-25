@@ -1,4 +1,4 @@
-// Infra version: 2
+// Infra version: 3 — Google Easy Auth replaces username/password auth
 @description('Name prefix used for all resources (e.g. "garminbodycomp")')
 param appName string = 'garminbodycomp'
 
@@ -10,16 +10,7 @@ param location string = resourceGroup().location
 param sku string = 'B1'
 
 @secure()
-param authUsername string
-
-@secure()
-param authPassword string
-
-@secure()
 param tokenEncryptionKey string
-
-@secure()
-param authCookieKey string
 
 var planName = '${appName}-plan'
 var siteName = appName
@@ -58,13 +49,11 @@ resource appServicePlan 'Microsoft.Web/serverfarms@2023-01-01' = {
   properties: { reserved: true }
 }
 
-// ── App Service (system-assigned Managed Identity) ─────────────────────────
+// ── App Service ────────────────────────────────────────────────────────────
 resource appService 'Microsoft.Web/sites@2023-01-01' = {
   name: siteName
   location: location
-  identity: {
-    type: 'SystemAssigned'
-  }
+  identity: { type: 'SystemAssigned' }
   properties: {
     serverFarmId: appServicePlan.id
     siteConfig: {
@@ -73,13 +62,8 @@ resource appService 'Microsoft.Web/sites@2023-01-01' = {
       appSettings: [
         { name: 'WEBSITES_PORT',                  value: '8000' }
         { name: 'SCM_DO_BUILD_DURING_DEPLOYMENT', value: 'true' }
-        // Storage account name only — no keys. Access via Managed Identity.
         { name: 'AZURE_STORAGE_ACCOUNT_NAME',     value: storageAccountName }
-        // Secrets resolved from Key Vault at runtime
-        { name: 'AUTH_USERNAME',                  value: '@Microsoft.KeyVault(SecretUri=${keyVault::secretUsername.properties.secretUri})' }
-        { name: 'AUTH_PASSWORD',                  value: '@Microsoft.KeyVault(SecretUri=${keyVault::secretPassword.properties.secretUri})' }
         { name: 'TOKEN_ENCRYPTION_KEY',           value: '@Microsoft.KeyVault(SecretUri=${keyVault::secretTokenKey.properties.secretUri})' }
-        { name: 'AUTH_COOKIE_KEY',                value: '@Microsoft.KeyVault(SecretUri=${keyVault::secretCookieKey.properties.secretUri})' }
       ]
     }
     httpsOnly: true
@@ -98,29 +82,13 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
     softDeleteRetentionInDays: 7
   }
 
-  resource secretUsername 'secrets' = {
-    name: 'auth-username'
-    properties: { value: authUsername }
-  }
-
-  resource secretPassword 'secrets' = {
-    name: 'auth-password'
-    properties: { value: authPassword }
-  }
-
   resource secretTokenKey 'secrets' = {
     name: 'token-encryption-key'
     properties: { value: tokenEncryptionKey }
   }
-
-  resource secretCookieKey 'secrets' = {
-    name: 'auth-cookie-key'
-    properties: { value: authCookieKey }
-  }
 }
 
-// ── Grant App Service read access to Key Vault secrets ────────────────────
-// Built-in: Key Vault Secrets User = 4633458b-17de-408a-b874-0445c86b69e6
+// ── Grant App Service read access to Key Vault ─────────────────────────────
 resource kvSecretsUserRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(keyVault.id, appService.id, '4633458b-17de-408a-b874-0445c86b69e6')
   scope: keyVault
@@ -132,7 +100,6 @@ resource kvSecretsUserRole 'Microsoft.Authorization/roleAssignments@2022-04-01' 
 }
 
 // ── Grant App Service read/write access to Blob Storage ───────────────────
-// Built-in: Storage Blob Data Contributor = ba92f5b4-2d11-453d-a403-e96b0029c9fe
 resource storageBlobRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(storageAccount.id, appService.id, 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')
   scope: storageAccount
@@ -143,7 +110,6 @@ resource storageBlobRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = 
   }
 }
 
-// ── Outputs ────────────────────────────────────────────────────────────────
 output appUrl string = 'https://${appService.properties.defaultHostName}'
 output appName string = appService.name
 output keyVaultName string = keyVault.name
