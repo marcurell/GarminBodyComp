@@ -11,12 +11,106 @@ from datetime import datetime
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 logging.basicConfig(level=logging.WARNING)
 
-st.set_page_config(page_title="Body Comp: Modular AI", page_icon="🧩", layout="wide")
+st.set_page_config(
+    page_title="True Body Composition",
+    page_icon="🏃",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 
+# ── Garmin-inspired dark theme ───────────────────────────────────────────────
 st.markdown("""
 <style>
-    .consensus-box { padding: 15px; border-radius: 10px; background-color: #e3f2fd; border-left: 5px solid #2196f3; }
-    .stMetric { background-color: #f9f9f9; padding: 10px; border-radius: 5px; }
+    /* Base */
+    [data-testid="stAppViewContainer"] { background-color: #111318; }
+    [data-testid="stSidebar"] { background-color: #1C1E26; border-right: 1px solid #2E3140; }
+    [data-testid="stHeader"] { background-color: #111318; }
+
+    /* Typography */
+    html, body, [class*="css"] { color: #E8EAF0; }
+    h1, h2, h3 { color: #FFFFFF; font-weight: 700; letter-spacing: -0.5px; }
+    label, .stRadio label { color: #A0A8C0 !important; font-size: 0.85rem; }
+
+    /* Metric cards */
+    [data-testid="stMetric"] {
+        background-color: #1C1E26;
+        border: 1px solid #2E3140;
+        border-radius: 12px;
+        padding: 16px 20px;
+    }
+    [data-testid="stMetricLabel"] { color: #6B7494 !important; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.8px; }
+    [data-testid="stMetricValue"] { color: #FFFFFF !important; font-size: 1.8rem; font-weight: 700; }
+    [data-testid="stMetricDelta"] { font-size: 0.85rem; }
+
+    /* Inputs & forms */
+    [data-testid="stTextInput"] input,
+    [data-testid="stNumberInput"] input {
+        background-color: #1C1E26 !important;
+        border: 1px solid #2E3140 !important;
+        border-radius: 8px !important;
+        color: #E8EAF0 !important;
+    }
+    [data-testid="stTextInput"] input:focus,
+    [data-testid="stNumberInput"] input:focus {
+        border-color: #1DB9E8 !important;
+        box-shadow: 0 0 0 2px rgba(29,185,232,0.15) !important;
+    }
+
+    /* Buttons */
+    [data-testid="stFormSubmitButton"] button,
+    [data-testid="stButton"] button {
+        background-color: #1DB9E8 !important;
+        color: #000000 !important;
+        border: none !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+        padding: 8px 20px !important;
+    }
+    [data-testid="stFormSubmitButton"] button:hover,
+    [data-testid="stButton"] button:hover {
+        background-color: #00A8D8 !important;
+    }
+
+    /* Tabs */
+    [data-testid="stTabs"] [role="tab"] {
+        color: #6B7494;
+        border-bottom: 2px solid transparent;
+        font-weight: 500;
+    }
+    [data-testid="stTabs"] [role="tab"][aria-selected="true"] {
+        color: #1DB9E8;
+        border-bottom-color: #1DB9E8;
+    }
+
+    /* Dataframe */
+    [data-testid="stDataFrame"] { border: 1px solid #2E3140; border-radius: 8px; }
+
+    /* Divider */
+    hr { border-color: #2E3140; }
+
+    /* Consensus box */
+    .consensus-box {
+        padding: 20px 24px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #1a2a3a 0%, #1C1E26 100%);
+        border-left: 4px solid #1DB9E8;
+        border: 1px solid #2E3140;
+        border-left: 4px solid #1DB9E8;
+    }
+    .consensus-box h3 { color: #1DB9E8; margin: 0 0 8px 0; font-size: 1rem; text-transform: uppercase; letter-spacing: 1px; }
+    .consensus-box .value { color: #FFFFFF; font-size: 2.5rem; font-weight: 700; line-height: 1; }
+    .consensus-box .sub { color: #6B7494; font-size: 0.85rem; margin-top: 6px; }
+
+    /* Sidebar headers */
+    [data-testid="stSidebar"] h1,
+    [data-testid="stSidebar"] h2,
+    [data-testid="stSidebar"] h3 { color: #1DB9E8; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; }
+
+    /* Info/warning/error boxes */
+    [data-testid="stInfo"] { background-color: #1a2535; border-color: #1DB9E8; color: #A0C8E8; }
+    [data-testid="stWarning"] { background-color: #2a2010; border-color: #F0A500; }
+    [data-testid="stSuccess"] { background-color: #102a15; border-color: #30D158; }
+    [data-testid="stError"] { background-color: #2a1010; border-color: #FF453A; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -31,13 +125,19 @@ except ImportError as e:
     logging.critical("Module import failed: %s", e)
     st.stop()
 
-# ── Auth ────────────────────────────────────────────────────────────────────
+# ── Auth ─────────────────────────────────────────────────────────────────────
 require_login()
 user_id = get_current_user()
 
-st.title("🧩 True Body Comp: Modular & Connected")
+# ── Header ───────────────────────────────────────────────────────────────────
+col_title, col_logo = st.columns([5, 1])
+with col_title:
+    st.markdown("# 🏃 True Body Composition")
+    st.markdown("<p style='color:#6B7494;margin-top:-12px;'>Powered by Garmin + AI Triangulation</p>", unsafe_allow_html=True)
 
-# ── State ───────────────────────────────────────────────────────────────────
+st.markdown("---")
+
+# ── State ────────────────────────────────────────────────────────────────────
 if "data" not in st.session_state:
     st.session_state.data = load_garmin_data(user_id)
 if "measurements" not in st.session_state:
@@ -47,22 +147,20 @@ if "measurements" not in st.session_state:
 def cached_triangulation(df, meas, height, gender):
     return run_triangulation(df, meas, height, gender)
 
-MAX_CSV_BYTES = 10 * 1024 * 1024  # 10 MB
+MAX_CSV_BYTES = 10 * 1024 * 1024
 
-# ── Sidebar ──────────────────────────────────────────────────────────────────
+# ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.header("1. Hämta Data")
-
-    source_tab1, source_tab2 = st.tabs(["☁️ Garmin Cloud", "📂 CSV Fil"])
+    st.markdown("### Data")
+    source_tab1, source_tab2 = st.tabs(["☁️ Garmin Cloud", "📂 CSV"])
 
     with source_tab1:
-        st.info("Dina Garmin-uppgifter skickas krypterat (HTTPS) och lagras aldrig.")
+        st.info("Uppgifter skickas krypterat och lagras aldrig.")
         with st.form("garmin_login"):
             email = st.text_input("E-mail")
             password = st.text_input("Lösenord", type="password")
-            days = st.number_input("Hämta antal dagar", 30, 365, 60)
-
-            if st.form_submit_button("Hämta från Cloud"):
+            days = st.number_input("Antal dagar", 30, 365, 60)
+            if st.form_submit_button("🔄 Hämta från Garmin"):
                 if not email or "@" not in email:
                     st.error("Ange en giltig e-postadress.")
                 elif not password:
@@ -74,7 +172,7 @@ with st.sidebar:
                             cleaned = clean_and_map_columns(df_api)
                             st.session_state.data = cleaned
                             save_garmin_data(user_id, cleaned)
-                            st.success(f"Klart! Hämtade {len(df_api)} mätningar.")
+                            st.success(f"✓ Hämtade {len(df_api)} mätningar.")
                         else:
                             st.error(error)
 
@@ -91,28 +189,24 @@ with st.sidebar:
                         uploaded_file.seek(0)
                         raw_input = pd.read_csv(uploaded_file, skiprows=20, on_bad_lines="skip")
                     st.session_state.data = clean_and_map_columns(raw_input)
-                    st.success("CSV inläst!")
+                    st.success("✓ CSV inläst!")
                 except Exception:
-                    st.error("Kunde inte läsa filen. Kontrollera att det är en giltig Garmin CSV-fil.")
+                    st.error("Kunde inte läsa filen.")
 
-    st.divider()
-
-    st.header("2. Fysiska Data")
-    height = st.number_input("Din Längd (cm)", min_value=100, max_value=250, value=180)
+    st.markdown("---")
+    st.markdown("### Profil")
+    height = st.number_input("Längd (cm)", min_value=100, max_value=250, value=180)
     gender = st.radio("Kön", ["Man", "Kvinna"])
 
-    st.header("3. Måttband (Ankare)")
+    st.markdown("---")
+    st.markdown("### Måttband")
     with st.form("tape_measure"):
         m_date = st.date_input("Datum", datetime.now())
-        m_waist = st.number_input("Midjemått (cm)", min_value=30, max_value=200, value=90)
-        m_neck = st.number_input("Halsmått (cm)", min_value=10, max_value=100, value=40)
-        m_hip = st.number_input("Höftmått (cm) [0 = Frivilligt]", min_value=0, max_value=200, value=0)
-
-        if st.form_submit_button("Spara Mätning"):
-            new_m = pd.DataFrame([{
-                "Date": pd.to_datetime(m_date),
-                "Waist": m_waist, "Neck": m_neck, "Hip": m_hip
-            }])
+        m_waist = st.number_input("Midja (cm)", min_value=30, max_value=200, value=90)
+        m_neck = st.number_input("Hals (cm)", min_value=10, max_value=100, value=40)
+        m_hip = st.number_input("Höft (cm) [0 = hoppa över]", min_value=0, max_value=200, value=0)
+        if st.form_submit_button("💾 Spara mätning"):
+            new_m = pd.DataFrame([{"Date": pd.to_datetime(m_date), "Waist": m_waist, "Neck": m_neck, "Hip": m_hip}])
             if st.session_state.measurements.empty:
                 updated_df = new_m
             else:
@@ -120,28 +214,28 @@ with st.sidebar:
                 updated_df = combined.drop_duplicates(subset="Date", keep="last").sort_values("Date")
             st.session_state.measurements = updated_df
             save_measurements(user_id, updated_df)
-            st.success("Sparat!")
+            st.success("✓ Sparat!")
             st.rerun()
 
     if not st.session_state.measurements.empty:
         with st.expander("Visa sparade mått"):
             st.dataframe(st.session_state.measurements, hide_index=True)
-            if st.button("Rensa Mätningar"):
+            if st.button("🗑 Rensa mätningar"):
                 empty_df = pd.DataFrame(columns=["Date", "Waist", "Neck", "Hip"])
                 st.session_state.measurements = empty_df
                 save_measurements(user_id, empty_df)
                 st.rerun()
 
-    st.divider()
+    st.markdown("---")
     logout_button()
 
-# ── Main ─────────────────────────────────────────────────────────────────────
+# ── Main ──────────────────────────────────────────────────────────────────────
 if st.session_state.data is not None:
     df = st.session_state.data
     meas = st.session_state.measurements
 
     if meas.empty:
-        st.warning("⚠️ Tips: Lägg till minst en måttbandsmätning i menyn för att kalibrera AI:n!")
+        st.warning("Lägg till minst en måttbandsmätning för att kalibrera analysen.")
 
     processed_df = cached_triangulation(df, meas, height, gender)
 
@@ -152,41 +246,74 @@ if st.session_state.data is not None:
         prev = processed_df.iloc[-2] if len(processed_df) > 1 else latest
         bias = latest.get("Bias_Offset", 0)
 
-        # Escape all values before injecting into HTML
         consensus_pct = html.escape(f"{latest.get('Consensus_Fat_Pct', 0):.1f}")
         garmin_pct = html.escape(f"{latest.get('fat_pct', 0):.1f}")
         bias_str = html.escape(f"{bias:+.1f}")
 
+        # ── Summary card ─────────────────────────────────────────────────────
         st.markdown(f"""
         <div class="consensus-box">
-            <h3>🤖 Triangulerings-Analys</h3>
-            <p><b>SLUTSATS:</b> Din sanna fettprocent är sannolikt <b>{consensus_pct}%</b>.</p>
-            <small>Garmin visade {garmin_pct}% (Avvikelse {bias_str}%)</small>
+            <h3>AI Triangulering — Resultat</h3>
+            <div class="value">{consensus_pct}<span style="font-size:1.2rem;color:#6B7494">%</span></div>
+            <div class="sub">Uppskattad sann fettprocent &nbsp;·&nbsp; Garmin visade {garmin_pct}% (avvikelse {bias_str}%)</div>
         </div>
         """, unsafe_allow_html=True)
 
-        st.divider()
+        st.markdown("<br>", unsafe_allow_html=True)
 
         col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Vikt", f"{latest.get('weight_kg', 0):.1f} kg", f"{(latest.get('weight_kg', 0)-prev.get('weight_kg', 0)):.1f} kg")
-        col2.metric("SANN Fett %", f"{latest.get('Consensus_Fat_Pct', 0):.1f} %", f"{(latest.get('Consensus_Fat_Pct', 0)-prev.get('Consensus_Fat_Pct', 0)):.1f} %")
+        col1.metric("Vikt", f"{latest.get('weight_kg', 0):.1f} kg",
+                    f"{(latest.get('weight_kg', 0)-prev.get('weight_kg', 0)):.1f} kg")
+        col2.metric("Fettprocent", f"{latest.get('Consensus_Fat_Pct', 0):.1f} %",
+                    f"{(latest.get('Consensus_Fat_Pct', 0)-prev.get('Consensus_Fat_Pct', 0)):.1f} %")
         col3.metric("Lean Mass", f"{latest.get('Lean_Mass_kg', 0):.1f} kg")
-        col4.metric("Bias", f"{bias:+.1f} %")
+        col4.metric("Garmin Avvikelse", f"{bias:+.1f} %")
 
-        tab1, tab2 = st.tabs(["🎯 Sanningen", "📊 Data"])
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        tab1, tab2 = st.tabs(["📈 Trender", "📋 Rådata"])
 
         with tab1:
             fig = go.Figure()
-            fig.add_trace(go.Scatter(x=processed_df["Date"], y=processed_df["fat_pct"], name="Garmin (Rå)", line=dict(color="gray", dash="dot"), opacity=0.3))
+            fig.add_trace(go.Scatter(
+                x=processed_df["Date"], y=processed_df["fat_pct"],
+                name="Garmin (rå)", line=dict(color="#4A5070", dash="dot", width=1.5), opacity=0.6
+            ))
             if "Navy_Fat_Pct" in processed_df.columns:
-                fig.add_trace(go.Scatter(x=processed_df["Date"], y=processed_df["Navy_Fat_Pct"], name="Navy (Måttband)", line=dict(color="#1976d2", width=2)))
-            fig.add_trace(go.Scatter(x=processed_df["Date"], y=processed_df["Consensus_Fat_Pct"], name="★ CONSENSUS", line=dict(color="#2e7d32", width=4)))
-            fig.update_layout(title="Jakten på Sanningen", hovermode="x unified",
-                              legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+                fig.add_trace(go.Scatter(
+                    x=processed_df["Date"], y=processed_df["Navy_Fat_Pct"],
+                    name="Navy (måttband)", line=dict(color="#1DB9E8", width=2)
+                ))
+            fig.add_trace(go.Scatter(
+                x=processed_df["Date"], y=processed_df["Consensus_Fat_Pct"],
+                name="Consensus", line=dict(color="#30D158", width=3),
+                fill="tozeroy", fillcolor="rgba(48,209,88,0.05)"
+            ))
+            fig.update_layout(
+                paper_bgcolor="#111318",
+                plot_bgcolor="#1C1E26",
+                font=dict(color="#A0A8C0"),
+                title=dict(text="Fettprocent över tid", font=dict(color="#FFFFFF", size=16)),
+                hovermode="x unified",
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
+                           bgcolor="rgba(0,0,0,0)", font=dict(color="#A0A8C0")),
+                xaxis=dict(gridcolor="#2E3140", linecolor="#2E3140"),
+                yaxis=dict(gridcolor="#2E3140", linecolor="#2E3140"),
+                margin=dict(t=60, b=40),
+            )
             st.plotly_chart(fig, use_container_width=True)
 
         with tab2:
-            st.dataframe(processed_df.sort_values("Date", ascending=False), use_container_width=True)
-
+            st.dataframe(
+                processed_df.sort_values("Date", ascending=False),
+                use_container_width=True,
+                hide_index=True,
+            )
 else:
-    st.info("👈 Logga in på Garmin eller ladda upp CSV i menyn för att starta.")
+    st.markdown("""
+    <div style="text-align:center;padding:80px 20px;color:#4A5070;">
+        <div style="font-size:4rem;">🏃</div>
+        <h2 style="color:#6B7494;font-weight:400;">Ingen data ännu</h2>
+        <p>Logga in på Garmin eller ladda upp en CSV-fil i menyn till vänster.</p>
+    </div>
+    """, unsafe_allow_html=True)

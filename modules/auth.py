@@ -41,6 +41,15 @@ def _get_user_from_header() -> str:
     """Read the Google-authenticated email injected by Azure Easy Auth."""
     try:
         headers = st.context.headers
-        return headers.get("X-Ms-Client-Principal-Name", "")
+        raw = headers.get("X-Ms-Client-Principal-Name", "")
+        return _sanitize_user_id(raw)
     except Exception:
         return ""
+
+
+def _sanitize_user_id(raw: str) -> str:
+    """Convert an email to a safe blob storage path segment.
+    e.g. lars@joyyoga.se -> lars_joyyoga_se
+    """
+    import re
+    return re.sub(r"[^a-z0-9_\-]", "_", raw.lower())

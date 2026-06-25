@@ -11,20 +11,24 @@ concurrency:
   group: azure-deploy
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
   deploy-infra:
     runs-on: ubuntu-latest
+    environment: production
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 
       - name: Azure login
-        uses: azure/login@v2
+        uses: azure/login@a65d910e8af852a8061c627c456678983e180302  # v2.2.0
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Deploy Bicep
-        uses: azure/arm-deploy@v2
+        uses: azure/arm-deploy@a1361c2781ef5767c606084053190b76f4b7b7c2  # v2.0.0
         with:
           subscriptionId: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           resourceGroupName: ${{ secrets.AZURE_RESOURCE_GROUP }}
