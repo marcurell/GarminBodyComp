@@ -1,0 +1,110 @@
+Security review for marcurell/GarminBodyComp
+Date: 2026-06-25
+Reviewer: GitHub Copilot Chat Assistant
+
+Summary
+- Performed a security review of the repository. Inspected: app.py, modules/* (auth.py, garmin_api.py, storage.py, data_handler.py), requirements.txt, and .github/workflows/deploy.yml.
+- This file contains a prioritized list of findings, impact, and concrete remediation steps.
+
+Critical (high-priority)
+1) TOKEN_ENCRYPTION_KEY stored as an environment variable (modules/storage.py)
+- Location: modules/storage.py -> _get_cipher()
+- Risk: Fernet key used to encrypt OAuth tokens is read directly from an environment variable. If the env var is leaked or accessible, an attacker can decrypt all stored Garmin tokens and impersonate users.
+- Impact: Full compromise of stored tokens and user accounts.
+- Remediation:
+  - Move key material to Azure Key Vault and fetch at runtime with DefaultAzureCredential. Do NOT store raw Fernet keys in app settings.
+  - Implement key rotation and access control via Key Vault RBAC/access policies.
+  - Short-term: restrict access to the environment, rotate the key immediately.
+
+2) Deployment credentials in workflow (.github/workflows/deploy.yml)
+- Location: .github/workflows/deploy.yml uses secrets.AZURE_WEBAPP_PUBLISH_PROFILE
+- Risk: Publish profiles are powerful credentials. If pushed, an attacker with push rights or control over workflow runs could exfiltrate or misuse them.
+- Impact: Compromise of production app and data.
+- Remediation:
+  - Prefer OIDC or service principal login (azure/login) instead of publish profile. Use least-privileged service principal or OIDC.
+  - Require protected GitHub Environments for production deployments with manual approvals.
+  - Restrict who can trigger or approve workflow runs; add branch protection requiring PR reviews.
+  - Pin GitHub Actions to specific versions / SHAs.
+
+High
+3) Encryption key validation and error handling (modules/storage.py)
+- Risk: Broad exception handlers hide decryption failures; malformed or rotated keys may silently fail.
+- Remediation: Use specific exceptions, log non-sensitive diagnostic info, and alert on repeated decryption failures. Fail closed for key mismatch scenarios.
+
+4) AUTH_PASSWORD handling (modules/auth.py)
+- Risk: App reads AUTH_PASSWORD from env and re-hashes on startup with bcrypt.gensalt(), producing a different hash each run. Storing raw passwords in env is risky.
+- Impact: Exposure of admin credential if environment is leaked; inconsistent hashing may affect sessions.
+- Remediation:
+  - Prefer external identity providers (Azure AD/OAuth) instead of rolling your own.
+  - If still using env vars, store AUTH_PASSWORD_HASH (pre-hashed bcrypt) and consume it directly without re-hashing.
+  - Consider shortening cookie lifetime and adding 2FA.
+
+Medium
+5) Blob path user_id usage (modules/storage.py)
+- Risk: user_id is used directly in blob names. A malicious or malformed user_id could create unexpected blob paths.
+- Remediation: Validate or normalize user_id (allow only alnum and -_.), or map usernames to stable UUIDs.
+
+6) In-process rate limiter (modules/garmin_api.py)
+- Risk: _login_attempts is in-memory; in multi-instance deployments it does not provide global rate limiting.
+- Remediation: Use a centralized rate-limit store (Redis/Azure Cache) keyed by user or IP; or rely on upstream provider limits.
+
+7) Broad exception swallowing (data_handler.py, storage.py)
+- Risk: Many try/except blocks suppress errors and return defaults without logging. This hides issues and can lead to silent failures.
+- Remediation: Log exceptions with context (avoid secrets), return explicit errors when appropriate, and add monitoring/alerts.
+
+8) Dependency management & supply chain (requirements.txt / workflow)
+- Risk: Using loose dependency specifiers (>=) and no lockfile allows builds to pull newer, potentially vulnerable packages. Workflow installs unconstrained requirements.
+- Remediation:
+  - Add a lockfile (pip-tools / poetry) and pin exact versions. Use Dependabot to keep dependencies updated.
+  - Add CodeQL and Bandit to CI. Add pip-audit / safety checks.
+  - Pin GitHub Actions (or use Dependabot for actions).
+
+Low
+9) CSV injection risk (modules/data_handler.py / storage.py)
+- Risk: If CSV files produced by the app are opened in Excel, fields beginning with =,+,-,@ could be interpreted as formulas (CSV injection).
+- Remediation: Sanitize export fields by prefixing a single quote or otherwise escaping formula-leading characters.
+
+10) Session cookie lifetime (modules/auth.py)
+- Risk: cookie_expiry_days=30 is long and increases risk of session hijacking.
+- Remediation: Shorten default lifetime (e.g., 7 days), add explicit "remember me" option, or use rotating sessions.
+
+11) Repository secrets check
+- Location: .garmin_tokens shows a directory but appears empty in the repo. Confirm no secret files are present in history.
+- Remediation: Run a repository secret scan across history (git-secrets / GitHub secret scanning). If any secrets were committed, rotate them immediately.
+
+Actionable PR suggestions
+- Key Vault integration: Add azure-keyvault-secrets and implement fetching TOKEN_ENCRYPTION_KEY from Key Vault with DefaultAzureCredential.
+- Auth: Accept AUTH_PASSWORD_HASH instead of raw password and avoid re-hashing at runtime.
+- Workflow hardening: Add permissions block, use GitHub Environments, switch to azure/login@v1 with OIDC, require reviewers for production environment.
+- Sanitize user_id: validate against a safe regex before using in blob paths.
+
+Recommended scans / automation (priority order)
+1) Enable Dependabot for Python dependencies and GitHub Actions.
+2) Add CodeQL code scanning.
+3) Add Bandit for Python security checks.
+4) Add pip-audit / safety / OSV scan for dependencies.
+5) Add secret scanning and periodic Trivy scans for container images if used.
+6) Pin GitHub Actions and add Dependabot for actions.
+
+Quick checklist (apply immediately)
+- Rotate TOKEN_ENCRYPTION_KEY and move it to Azure Key Vault.
+- Ensure AZURE_WEBAPP_PUBLISH_PROFILE is stored in GitHub Secrets and restrict workflow approvals; prefer OIDC/service principal.
+- Add branch protection on master: require PR reviews and passing checks.
+- Add dependabot.yml to monitor dependencies and actions.
+- Shorten cookie expiry or use a proper identity provider.
+- Add CodeQL + Bandit + pip-audit to CI.
+- Sanitize user_id before creating blob names.
+- Accept pre-hashed auth passwords or integrate with Azure AD.
+
+Notes on severity
+- Highest risks: exposure of TOKEN_ENCRYPTION_KEY and deployment credentials used in CI. Remediate those first.
+- App-level and dependency issues are important secondary tasks.
+
+Next steps I can do for you
+- Create PRs with suggested code changes (Key Vault stub, auth change, workflow hardening).
+- Add Dependabot and CodeQL workflow files to the repository.
+- Run a repo-wide secrets search now.
+
+If you want me to commit PRs or additional files, tell me which change to start with.
+
+-- End of report
