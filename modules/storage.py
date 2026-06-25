@@ -43,6 +43,10 @@ def _get_cipher() -> Fernet:
     key = os.environ.get("TOKEN_ENCRYPTION_KEY")
     if not key:
         raise RuntimeError("TOKEN_ENCRYPTION_KEY environment variable is not set")
+    # Restore base64 padding if it was stripped during key generation
+    padding = 4 - len(key) % 4
+    if padding != 4:
+        key = key + "=" * padding
     return Fernet(key.encode())
 
 
