@@ -1,0 +1,33 @@
+name: Deploy Infrastructure
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'infra/**'
+  workflow_dispatch:
+
+jobs:
+  deploy-infra:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy Bicep
+        uses: azure/arm-deploy@v2
+        with:
+          subscriptionId: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          resourceGroupName: ${{ secrets.AZURE_RESOURCE_GROUP }}
+          template: infra/main.bicep
+          parameters: >
+            authUsername=${{ secrets.AUTH_USERNAME }}
+            authPassword=${{ secrets.AUTH_PASSWORD }}
+            authCookieKey=${{ secrets.AUTH_COOKIE_KEY }}
+            tokenEncryptionKey=${{ secrets.TOKEN_ENCRYPTION_KEY }}
+          failOnStdErr: false
