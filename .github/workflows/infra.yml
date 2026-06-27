@@ -35,4 +35,6 @@ jobs:
           template: infra/main.bicep
           parameters: >
             tokenEncryptionKey=${{ secrets.TOKEN_ENCRYPTION_KEY }}
+            googleClientId=${{ secrets.GOOGLE_CLIENT_ID }}
+            googleClientSecret=${{ secrets.GOOGLE_CLIENT_SECRET }}
           failOnStdErr: false

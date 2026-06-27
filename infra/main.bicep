@@ -1,4 +1,4 @@
-// Infra version: 3 — Google Easy Auth replaces username/password auth
+// Infra version: 4 — Easy Auth config managed in Bicep to survive redeployments
 @description('Name prefix used for all resources (e.g. "garminbodycomp")')
 param appName string = 'garminbodycomp'
 
@@ -11,6 +11,13 @@ param sku string = 'B1'
 
 @secure()
 param tokenEncryptionKey string
+
+@description('Google OAuth Client ID')
+param googleClientId string
+
+@secure()
+@description('Google OAuth Client Secret')
+param googleClientSecret string
 
 var planName = '${appName}-plan'
 var siteName = appName
@@ -60,10 +67,11 @@ resource appService 'Microsoft.Web/sites@2023-01-01' = {
       linuxFxVersion: 'PYTHON|3.11'
       appCommandLine: 'python -m streamlit run app.py --server.port 8000 --server.address 0.0.0.0 --server.headless true'
       appSettings: [
-        { name: 'WEBSITES_PORT',                  value: '8000' }
-        { name: 'SCM_DO_BUILD_DURING_DEPLOYMENT', value: 'true' }
-        { name: 'AZURE_STORAGE_ACCOUNT_NAME',     value: storageAccountName }
-        { name: 'TOKEN_ENCRYPTION_KEY',           value: '@Microsoft.KeyVault(SecretUri=${keyVault::secretTokenKey.properties.secretUri})' }
+        { name: 'WEBSITES_PORT',                          value: '8000' }
+        { name: 'SCM_DO_BUILD_DURING_DEPLOYMENT',         value: 'true' }
+        { name: 'AZURE_STORAGE_ACCOUNT_NAME',             value: storageAccountName }
+        { name: 'TOKEN_ENCRYPTION_KEY',                   value: '@Microsoft.KeyVault(SecretUri=${keyVault::secretTokenKey.properties.secretUri})' }
+        { name: 'GOOGLE_PROVIDER_AUTHENTICATION_SECRET',  value: '@Microsoft.KeyVault(SecretUri=${keyVault::secretGoogleClientSecret.properties.secretUri})' }
       ]
     }
     httpsOnly: true
@@ -86,6 +94,11 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
     name: 'token-encryption-key'
     properties: { value: tokenEncryptionKey }
   }
+
+  resource secretGoogleClientSecret 'secrets' = {
+    name: 'google-client-secret'
+    properties: { value: googleClientSecret }
+  }
 }
 
 // ── Grant App Service read access to Key Vault ─────────────────────────────
@@ -107,6 +120,39 @@ resource storageBlobRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = 
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')
     principalId: appService.identity.principalId
     principalType: 'ServicePrincipal'
+  }
+}
+
+// ── Easy Auth (Google OAuth) ───────────────────────────────────────────────
+resource authSettings 'Microsoft.Web/sites/config@2023-01-01' = {
+  parent: appService
+  name: 'authsettingsV2'
+  properties: {
+    globalValidation: {
+      requireAuthentication: true
+      unauthenticatedClientAction: 'RedirectToLoginPage'
+      redirectToProvider: 'google'
+    }
+    identityProviders: {
+      google: {
+        enabled: true
+        registration: {
+          clientId: googleClientId
+          clientSecretSettingName: 'GOOGLE_PROVIDER_AUTHENTICATION_SECRET'
+        }
+        login: {
+          scopes: ['openid', 'profile', 'email']
+        }
+      }
+    }
+    login: {
+      tokenStore: {
+        enabled: true
+      }
+    }
+    httpSettings: {
+      requireHttps: true
+    }
   }
 }
 
