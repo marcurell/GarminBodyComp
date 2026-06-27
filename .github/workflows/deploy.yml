@@ -29,7 +29,7 @@ jobs:
         run: zip -r app.zip . -x "*.git*" -x "__pycache__/*" -x "*.pyc" -x "infra/*" -x ".github/*"
 
       - name: Deploy to Azure Web App
-        uses: azure/webapps-deploy@de617f46172a906d0617bb0e50d81e9e3aec24c8  # v3.0.1
+        uses: azure/webapps-deploy@02a81bead70021f5284939794bcec79c271ab383  # v3.0.8
         with:
           app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
           package: app.zip
