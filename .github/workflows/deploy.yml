@@ -25,15 +25,11 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Set up Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
-        with:
-          python-version: '3.11'
-
-      - name: Install dependencies
-        run: pip install -r requirements.txt
+      - name: Zip app for deployment
+        run: zip -r app.zip . -x "*.git*" -x "__pycache__/*" -x "*.pyc" -x "infra/*" -x ".github/*"
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@de617f46172a906d0617bb0e50d81e9e3aec24c8  # v3.0.1
         with:
           app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
+          package: app.zip
