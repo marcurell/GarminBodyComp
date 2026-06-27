@@ -28,8 +28,9 @@ jobs:
       - name: Zip app for deployment
         run: zip -r app.zip . -x "*.git*" -x "__pycache__/*" -x "*.pyc" -x "infra/*" -x ".github/*"
 
-      - name: Deploy to Azure Web App
-        uses: azure/webapps-deploy@de617f46172a906d0617bb0e50d81e9e3aec24c8  # v3.0.1
-        with:
-          app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
-          package: app.zip
+      - name: Deploy via Kudu (triggers Oryx server-side build)
+        run: |
+          az webapp deployment source config-zip \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --name ${{ secrets.AZURE_WEBAPP_NAME }} \
+            --src app.zip
