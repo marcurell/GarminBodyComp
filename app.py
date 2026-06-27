@@ -372,7 +372,7 @@ if st.session_state.data is not None:
                 yaxis=dict(gridcolor="#2E3140", linecolor="#2E3140"),
                 margin=dict(t=60, b=40),
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
         # ── Measurements table ────────────────────────────────────────────────
         with tab_meas:
@@ -381,7 +381,7 @@ if st.session_state.data is not None:
             else:
                 display = meas.copy()
                 display["Date"] = display["Date"].dt.strftime("%Y-%m-%d")
-                st.dataframe(display, use_container_width=True, hide_index=True)
+                st.dataframe(display, width="stretch", hide_index=True)
 
                 st.markdown("**Ta bort mätningar**")
                 date_source_labels = [
@@ -422,7 +422,7 @@ if st.session_state.data is not None:
                 mask = (gdf["Date"].dt.date >= filter_from) & (gdf["Date"].dt.date <= filter_to)
                 gdf_filtered = gdf[mask].copy()
                 gdf_filtered["Date"] = gdf_filtered["Date"].dt.strftime("%Y-%m-%d")
-                st.dataframe(gdf_filtered, use_container_width=True, hide_index=True)
+                st.dataframe(gdf_filtered, width="stretch", hide_index=True)
 
                 st.markdown("**Ta bort datapunkter**")
                 g_dates = gdf[mask]["Date"].dt.strftime("%Y-%m-%d").tolist()
