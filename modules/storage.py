@@ -1,6 +1,8 @@
-import os
 import io
+import json
 import logging
+import os
+
 import pandas as pd
 from azure.identity import DefaultAzureCredential
 from azure.storage.blob import BlobServiceClient
@@ -80,8 +82,19 @@ def save_measurements(user_id: str, df: pd.DataFrame) -> None:
 # --- Garmin body composition data -------------------------------------------
 
 def save_garmin_data(user_id: str, df: pd.DataFrame) -> None:
+    """Merge new data with existing, keeping latest record per date."""
+    existing = load_garmin_data(user_id)
+    if existing is not None and not existing.empty:
+        combined = (
+            pd.concat([existing, df])
+            .drop_duplicates(subset="Date", keep="last")
+            .sort_values("Date")
+            .reset_index(drop=True)
+        )
+    else:
+        combined = df.sort_values("Date").reset_index(drop=True)
     buf = io.BytesIO()
-    df.to_csv(buf, index=False)
+    combined.to_csv(buf, index=False)
     buf.seek(0)
     _blob(user_id, "garmin_data.csv").upload_blob(buf, overwrite=True)
 
@@ -94,6 +107,21 @@ def load_garmin_data(user_id: str) -> pd.DataFrame | None:
         return df
     except Exception:
         return None
+
+
+# --- User profile (height, gender) -----------------------------------------
+
+def load_profile(user_id: str) -> dict:
+    try:
+        data = _blob(user_id, "profile.json").download_blob().readall()
+        return json.loads(data)
+    except Exception:
+        return {}
+
+
+def save_profile(user_id: str, profile: dict) -> None:
+    buf = io.BytesIO(json.dumps(profile).encode())
+    _blob(user_id, "profile.json").upload_blob(buf, overwrite=True)
 
 
 # --- Garmin tokens (encrypted at rest) --------------------------------------

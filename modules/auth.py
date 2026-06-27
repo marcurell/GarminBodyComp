@@ -13,7 +13,7 @@ import streamlit as st
 import os
 
 def require_login() -> None:
-    """Verify Azure Easy Auth identity is present. Blocks if not authenticated."""
+    """Verify Azure Easy Auth identity is present and on the allowlist."""
     user = _get_user_from_header()
     if not user:
         st.markdown("""
@@ -29,6 +29,18 @@ def require_login() -> None:
         </div>
         """, unsafe_allow_html=True)
         st.stop()
+
+    allowed_raw = os.environ.get("ALLOWED_EMAILS", "")
+    if allowed_raw:
+        allowed = {e.strip().lower() for e in allowed_raw.split(",") if e.strip()}
+        if user not in allowed:
+            st.error("Du har inte behörighet att använda denna app.")
+            st.markdown(
+                '<a href="/.auth/logout" target="_self">Logga ut</a>',
+                unsafe_allow_html=True,
+            )
+            st.stop()
+
     st.session_state["user_id"] = user
 
 

@@ -152,7 +152,7 @@ try:
     from modules.logic import run_triangulation
     from modules.garmin_api import fetch_garmin_data
     from modules.auth import require_login, get_current_user, logout_button
-    from modules.storage import load_measurements, save_measurements, load_garmin_data, save_garmin_data
+    from modules.storage import load_measurements, save_measurements, load_garmin_data, save_garmin_data, load_profile, save_profile
 except ImportError as e:
     st.error("Kritiskt fel: Kunde inte ladda moduler. Kontakta admin.")
     logging.critical("Module import failed: %s", e)
@@ -175,6 +175,8 @@ if "data" not in st.session_state:
     st.session_state.data = load_garmin_data(user_id)
 if "measurements" not in st.session_state:
     st.session_state.measurements = load_measurements(user_id)
+if "profile" not in st.session_state:
+    st.session_state.profile = load_profile(user_id)
 
 @st.cache_data(ttl=3600)
 def cached_triangulation(df, meas, height, gender):
@@ -203,9 +205,9 @@ with st.sidebar:
                         df_api, error = fetch_garmin_data(email, password, int(days), user_id)
                         if df_api is not None:
                             cleaned = clean_and_map_columns(df_api)
-                            st.session_state.data = cleaned
                             save_garmin_data(user_id, cleaned)
-                            st.success(f"✓ Hämtade {len(df_api)} mätningar.")
+                            st.session_state.data = load_garmin_data(user_id)
+                            st.success(f"✓ Hämtade {len(df_api)} nya mätningar (totalt {len(st.session_state.data)} i databasen).")
                         else:
                             st.error(error)
 
@@ -228,8 +230,23 @@ with st.sidebar:
 
     st.markdown("---")
     st.markdown("### Profil")
-    height = st.number_input("Längd (cm)", min_value=100, max_value=250, value=180)
-    gender = st.radio("Kön", ["Man", "Kvinna"])
+
+    def _save_profile():
+        save_profile(user_id, {
+            "height": st.session_state.height_input,
+            "gender": st.session_state.gender_input,
+        })
+
+    height = st.number_input(
+        "Längd (cm)", min_value=100, max_value=250,
+        value=st.session_state.profile.get("height", 180),
+        key="height_input", on_change=_save_profile,
+    )
+    gender = st.radio(
+        "Kön", ["Man", "Kvinna"],
+        index=0 if st.session_state.profile.get("gender", "Man") == "Man" else 1,
+        key="gender_input", on_change=_save_profile,
+    )
 
     st.markdown("---")
     st.markdown("### Måttband")
@@ -251,13 +268,25 @@ with st.sidebar:
             st.rerun()
 
     if not st.session_state.measurements.empty:
-        with st.expander("Visa sparade mått"):
+        with st.expander("Hantera mätningar"):
             st.dataframe(st.session_state.measurements, hide_index=True)
-            if st.button("🗑 Rensa mätningar"):
-                empty_df = pd.DataFrame(columns=["Date", "Waist", "Neck", "Hip"])
-                st.session_state.measurements = empty_df
-                save_measurements(user_id, empty_df)
-                st.rerun()
+            dates = st.session_state.measurements["Date"].dt.strftime("%Y-%m-%d").tolist()
+            to_delete = st.multiselect("Välj datum att ta bort", dates)
+            col_del, col_clear = st.columns(2)
+            with col_del:
+                if to_delete and st.button("🗑 Ta bort valda"):
+                    updated = st.session_state.measurements[
+                        ~st.session_state.measurements["Date"].dt.strftime("%Y-%m-%d").isin(to_delete)
+                    ]
+                    st.session_state.measurements = updated
+                    save_measurements(user_id, updated)
+                    st.rerun()
+            with col_clear:
+                if st.button("🗑 Rensa alla"):
+                    empty_df = pd.DataFrame(columns=["Date", "Waist", "Neck", "Hip"])
+                    st.session_state.measurements = empty_df
+                    save_measurements(user_id, empty_df)
+                    st.rerun()
 
     st.markdown("---")
     logout_button()
