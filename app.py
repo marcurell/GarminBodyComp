@@ -31,7 +31,7 @@ st.markdown("""
     p, span, div { color: #E8EAF0; }
     h1, h2, h3 { color: #FFFFFF !important; font-weight: 700; letter-spacing: -0.5px; }
 
-    /* Labels — all labels bright and readable */
+    /* Labels */
     label { color: #C8CDE0 !important; font-size: 0.85rem !important; }
     [data-testid="stSidebar"] label { color: #C8CDE0 !important; }
 
@@ -54,7 +54,7 @@ st.markdown("""
     [data-testid="stMetricValue"] { color: #FFFFFF !important; font-size: 1.8rem; font-weight: 700; }
     [data-testid="stMetricDelta"] { font-size: 0.85rem; }
 
-    /* Inputs — bright text on dark bg */
+    /* Inputs */
     [data-testid="stTextInput"] input,
     [data-testid="stNumberInput"] input,
     [data-testid="stDateInput"] input {
@@ -71,7 +71,7 @@ st.markdown("""
         box-shadow: 0 0 0 2px rgba(29,185,232,0.2) !important;
     }
 
-    /* Number input stepper buttons */
+    /* Number input stepper */
     [data-testid="stNumberInput"] button { color: #E8EAF0 !important; background: #2E3140 !important; border: none !important; }
 
     /* Date input */
@@ -88,20 +88,11 @@ st.markdown("""
         padding: 8px 20px !important;
     }
     [data-testid="stFormSubmitButton"] button:hover,
-    [data-testid="stButton"] button:hover {
-        background-color: #00A8D8 !important;
-    }
+    [data-testid="stButton"] button:hover { background-color: #00A8D8 !important; }
 
     /* Tabs */
-    [data-testid="stTabs"] [role="tab"] {
-        color: #6B7494;
-        border-bottom: 2px solid transparent;
-        font-weight: 500;
-    }
-    [data-testid="stTabs"] [role="tab"][aria-selected="true"] {
-        color: #1DB9E8;
-        border-bottom-color: #1DB9E8;
-    }
+    [data-testid="stTabs"] [role="tab"] { color: #8A94B8 !important; border-bottom: 2px solid transparent; font-weight: 500; }
+    [data-testid="stTabs"] [role="tab"][aria-selected="true"] { color: #1DB9E8 !important; border-bottom-color: #1DB9E8; }
 
     /* Dataframe */
     [data-testid="stDataFrame"] { border: 1px solid #2E3140; border-radius: 8px; }
@@ -127,7 +118,7 @@ st.markdown("""
     [data-testid="stSidebar"] h2,
     [data-testid="stSidebar"] h3 { color: #1DB9E8; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; }
 
-    /* Info/warning/error boxes — bright text */
+    /* Info/warning/error boxes */
     [data-testid="stInfo"]    { background-color: #1a2535; border-color: #1DB9E8; color: #C8E8F8 !important; }
     [data-testid="stInfo"] p  { color: #C8E8F8 !important; }
     [data-testid="stWarning"] { background-color: #2a2010; border-color: #F0A500; color: #F8DCA0 !important; }
@@ -140,10 +131,6 @@ st.markdown("""
     /* Expander */
     [data-testid="stExpander"] { border: 1px solid #2E3140 !important; border-radius: 8px !important; }
     [data-testid="stExpander"] summary { color: #C8CDE0 !important; }
-
-    /* Tabs text */
-    [data-testid="stTabs"] [role="tab"] { color: #8A94B8 !important; }
-    [data-testid="stTabs"] [role="tab"][aria-selected="true"] { color: #1DB9E8 !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -152,7 +139,11 @@ try:
     from modules.logic import run_triangulation
     from modules.garmin_api import fetch_garmin_data
     from modules.auth import require_login, get_current_user, logout_button
-    from modules.storage import load_measurements, save_measurements, load_garmin_data, save_garmin_data, load_profile, save_profile
+    from modules.storage import (
+        load_measurements, save_measurements,
+        load_garmin_data, save_garmin_data, delete_garmin_rows,
+        load_profile, save_profile,
+    )
 except ImportError as e:
     st.error("Kritiskt fel: Kunde inte ladda moduler. Kontakta admin.")
     logging.critical("Module import failed: %s", e)
@@ -163,14 +154,11 @@ require_login()
 user_id = get_current_user()
 
 # ── Header ───────────────────────────────────────────────────────────────────
-col_title, col_logo = st.columns([5, 1])
-with col_title:
-    st.markdown("# 🏃 True Body Composition")
-    st.markdown("<p style='color:#6B7494;margin-top:-12px;'>Powered by Garmin + AI Triangulation</p>", unsafe_allow_html=True)
-
+st.markdown("# 🏃 True Body Composition")
+st.markdown("<p style='color:#6B7494;margin-top:-12px;'>Powered by Garmin + AI Triangulation</p>", unsafe_allow_html=True)
 st.markdown("---")
 
-# ── State ────────────────────────────────────────────────────────────────────
+# ── Session state ─────────────────────────────────────────────────────────────
 if "data" not in st.session_state:
     st.session_state.data = load_garmin_data(user_id)
 if "measurements" not in st.session_state:
@@ -186,11 +174,34 @@ MAX_CSV_BYTES = 10 * 1024 * 1024
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("### Data")
-    source_tab1, source_tab2 = st.tabs(["☁️ Garmin Cloud", "📂 CSV"])
 
-    with source_tab1:
-        st.info("Uppgifter skickas krypterat och lagras aldrig.")
+    # ── Profile ──────────────────────────────────────────────────────────────
+    with st.expander("⚙️ Profil"):
+        def _save_profile():
+            save_profile(user_id, {
+                "height": st.session_state.height_input,
+                "gender": st.session_state.gender_input,
+            })
+
+        st.number_input(
+            "Längd (cm)", min_value=100, max_value=250,
+            value=st.session_state.profile.get("height", 180),
+            key="height_input", on_change=_save_profile,
+        )
+        st.radio(
+            "Kön", ["Man", "Kvinna"],
+            index=0 if st.session_state.profile.get("gender", "Man") == "Man" else 1,
+            key="gender_input", on_change=_save_profile,
+        )
+        st.caption("Sparas automatiskt vid ändring.")
+
+    height = st.session_state.get("height_input", st.session_state.profile.get("height", 180))
+    gender = st.session_state.get("gender_input", st.session_state.profile.get("gender", "Man"))
+
+    st.markdown("---")
+
+    # ── Import from Garmin ───────────────────────────────────────────────────
+    with st.expander("☁️ Importera från Garmin"):
         with st.form("garmin_login"):
             email = st.text_input("E-mail")
             password = st.text_input("Lösenord", type="password")
@@ -207,12 +218,13 @@ with st.sidebar:
                             cleaned = clean_and_map_columns(df_api)
                             save_garmin_data(user_id, cleaned)
                             st.session_state.data = load_garmin_data(user_id)
-                            st.success(f"✓ Hämtade {len(df_api)} nya mätningar (totalt {len(st.session_state.data)} i databasen).")
+                            st.success(f"✓ {len(df_api)} nya rader hämtade (totalt {len(st.session_state.data)} i databasen).")
                         else:
                             st.error(error)
 
-    with source_tab2:
-        uploaded_file = st.file_uploader("Ladda upp CSV", type=["csv"])
+    # ── CSV upload ───────────────────────────────────────────────────────────
+    with st.expander("📂 Ladda upp CSV"):
+        uploaded_file = st.file_uploader("Garmin-export CSV", type=["csv"])
         if uploaded_file:
             if uploaded_file.size > MAX_CSV_BYTES:
                 st.error("Filen är för stor (max 10 MB).")
@@ -223,94 +235,81 @@ with st.sidebar:
                     if raw_input is None:
                         uploaded_file.seek(0)
                         raw_input = pd.read_csv(uploaded_file, skiprows=20, on_bad_lines="skip")
-                    st.session_state.data = clean_and_map_columns(raw_input)
-                    st.success("✓ CSV inläst!")
+                    cleaned = clean_and_map_columns(raw_input)
+                    save_garmin_data(user_id, cleaned)
+                    st.session_state.data = load_garmin_data(user_id)
+                    st.success("✓ CSV importerad och sammanfogad!")
                 except Exception:
                     st.error("Kunde inte läsa filen.")
 
     st.markdown("---")
-    st.markdown("### Profil")
 
-    def _save_profile():
-        save_profile(user_id, {
-            "height": st.session_state.height_input,
-            "gender": st.session_state.gender_input,
-        })
+    # ── Add measurement ───────────────────────────────────────────────────────
+    with st.expander("➕ Lägg till mätning"):
+        source = st.selectbox(
+            "Typ av mätning",
+            ["Måttband (Navy)", "DEXA Scan", "BodyPod"],
+            key="meas_source_select",
+        )
+        with st.form("add_measurement"):
+            m_date = st.date_input("Datum", datetime.now())
 
-    height = st.number_input(
-        "Längd (cm)", min_value=100, max_value=250,
-        value=st.session_state.profile.get("height", 180),
-        key="height_input", on_change=_save_profile,
-    )
-    gender = st.radio(
-        "Kön", ["Man", "Kvinna"],
-        index=0 if st.session_state.profile.get("gender", "Man") == "Man" else 1,
-        key="gender_input", on_change=_save_profile,
-    )
-
-    st.markdown("---")
-    st.markdown("### Måttband")
-    with st.form("tape_measure"):
-        m_date = st.date_input("Datum", datetime.now())
-        m_waist = st.number_input("Midja (cm)", min_value=30, max_value=200, value=90)
-        m_neck = st.number_input("Hals (cm)", min_value=10, max_value=100, value=40)
-        m_hip = st.number_input("Höft (cm) [0 = hoppa över]", min_value=0, max_value=200, value=0)
-        if st.form_submit_button("💾 Spara mätning"):
-            new_m = pd.DataFrame([{"Date": pd.to_datetime(m_date), "Waist": m_waist, "Neck": m_neck, "Hip": m_hip}])
-            if st.session_state.measurements.empty:
-                updated_df = new_m
+            if source == "Måttband (Navy)":
+                m_waist = st.number_input("Midja (cm)", min_value=30, max_value=200, value=90)
+                m_neck  = st.number_input("Hals (cm)",  min_value=10, max_value=100, value=40)
+                m_hip   = st.number_input("Höft (cm) [0 = hoppa över]", min_value=0, max_value=200, value=0)
+                m_fat   = None
             else:
-                combined = pd.concat([st.session_state.measurements, new_m])
-                updated_df = combined.drop_duplicates(subset="Date", keep="last").sort_values("Date")
-            st.session_state.measurements = updated_df
-            save_measurements(user_id, updated_df)
-            st.success("✓ Sparat!")
-            st.rerun()
+                m_fat   = st.number_input("Fettprocent (%)", min_value=1.0, max_value=60.0, value=20.0, step=0.1)
+                m_waist = m_neck = m_hip = None
 
-    if not st.session_state.measurements.empty:
-        with st.expander("Hantera mätningar"):
-            st.dataframe(st.session_state.measurements, hide_index=True)
-            dates = st.session_state.measurements["Date"].dt.strftime("%Y-%m-%d").tolist()
-            to_delete = st.multiselect("Välj datum att ta bort", dates)
-            col_del, col_clear = st.columns(2)
-            with col_del:
-                if to_delete and st.button("🗑 Ta bort valda"):
-                    updated = st.session_state.measurements[
-                        ~st.session_state.measurements["Date"].dt.strftime("%Y-%m-%d").isin(to_delete)
-                    ]
-                    st.session_state.measurements = updated
-                    save_measurements(user_id, updated)
-                    st.rerun()
-            with col_clear:
-                if st.button("🗑 Rensa alla"):
-                    empty_df = pd.DataFrame(columns=["Date", "Waist", "Neck", "Hip"])
-                    st.session_state.measurements = empty_df
-                    save_measurements(user_id, empty_df)
-                    st.rerun()
+            if st.form_submit_button("💾 Spara mätning"):
+                src_key = {"Måttband (Navy)": "Navy", "DEXA Scan": "DEXA", "BodyPod": "BodyPod"}[source]
+                new_row = pd.DataFrame([{
+                    "Date":       pd.to_datetime(m_date),
+                    "Source":     src_key,
+                    "BodyFatPct": m_fat if m_fat is not None else float("nan"),
+                    "Waist":      m_waist if m_waist is not None else float("nan"),
+                    "Neck":       m_neck  if m_neck  is not None else float("nan"),
+                    "Hip":        m_hip   if m_hip   is not None else float("nan"),
+                }])
+                combined = pd.concat([st.session_state.measurements, new_row])
+                combined = (combined
+                    .drop_duplicates(subset=["Date", "Source"], keep="last")
+                    .sort_values("Date")
+                    .reset_index(drop=True))
+                st.session_state.measurements = combined
+                save_measurements(user_id, combined)
+                st.success("✓ Sparat!")
+                st.rerun()
 
     st.markdown("---")
     logout_button()
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 if st.session_state.data is not None:
-    df = st.session_state.data
-    meas = st.session_state.measurements
+    df       = st.session_state.data
+    meas     = st.session_state.measurements
+    navy_meas = meas[meas["Source"] == "Navy"].rename(
+        columns={"Waist": "Waist", "Neck": "Neck", "Hip": "Hip"}
+    )[["Date", "Waist", "Neck", "Hip"]].copy()
+    ref_meas  = meas[meas["Source"].isin(["DEXA", "BodyPod"])].copy()
 
-    if meas.empty:
-        st.warning("Lägg till minst en måttbandsmätning för att kalibrera analysen.")
+    if navy_meas.empty and ref_meas.empty:
+        st.warning("Lägg till minst en mätning för att kalibrera analysen.")
 
-    processed_df = cached_triangulation(df, meas, height, gender)
+    processed_df = cached_triangulation(df, navy_meas, height, gender)
 
     if processed_df is None or processed_df.empty:
         st.error("Ingen data kunde beräknas. Kontrollera att datumen matchar.")
     else:
         latest = processed_df.iloc[-1]
-        prev = processed_df.iloc[-2] if len(processed_df) > 1 else latest
-        bias = latest.get("Bias_Offset", 0)
+        prev   = processed_df.iloc[-2] if len(processed_df) > 1 else latest
+        bias   = latest.get("Bias_Offset", 0)
 
         consensus_pct = html.escape(f"{latest.get('Consensus_Fat_Pct', 0):.1f}")
-        garmin_pct = html.escape(f"{latest.get('fat_pct', 0):.1f}")
-        bias_str = html.escape(f"{bias:+.1f}")
+        garmin_pct    = html.escape(f"{latest.get('fat_pct', 0):.1f}")
+        bias_str      = html.escape(f"{bias:+.1f}")
 
         # ── Summary card ─────────────────────────────────────────────────────
         st.markdown(f"""
@@ -333,9 +332,10 @@ if st.session_state.data is not None:
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        tab1, tab2 = st.tabs(["📈 Trender", "📋 Rådata"])
+        tab_chart, tab_meas, tab_garmin = st.tabs(["📈 Trender", "📋 Mätningar", "📊 Garmin Data"])
 
-        with tab1:
+        # ── Chart ─────────────────────────────────────────────────────────────
+        with tab_chart:
             fig = go.Figure()
             fig.add_trace(go.Scatter(
                 x=processed_df["Date"], y=processed_df["fat_pct"],
@@ -351,31 +351,92 @@ if st.session_state.data is not None:
                 name="Consensus", line=dict(color="#30D158", width=3),
                 fill="tozeroy", fillcolor="rgba(48,209,88,0.05)"
             ))
+            # DEXA / BodyPod reference markers
+            for src, color, symbol in [("DEXA", "#F0A500", "diamond"), ("BodyPod", "#FF6B6B", "circle")]:
+                src_df = ref_meas[ref_meas["Source"] == src]
+                if not src_df.empty:
+                    fig.add_trace(go.Scatter(
+                        x=src_df["Date"], y=src_df["BodyFatPct"],
+                        mode="markers", name=src,
+                        marker=dict(color=color, size=12, symbol=symbol,
+                                    line=dict(color="#FFFFFF", width=1.5)),
+                    ))
             fig.update_layout(
-                paper_bgcolor="#111318",
-                plot_bgcolor="#1C1E26",
+                paper_bgcolor="#111318", plot_bgcolor="#1C1E26",
                 font=dict(color="#A0A8C0"),
                 title=dict(text="Fettprocent över tid", font=dict(color="#FFFFFF", size=16)),
                 hovermode="x unified",
                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
-                           bgcolor="rgba(0,0,0,0)", font=dict(color="#A0A8C0")),
+                            bgcolor="rgba(0,0,0,0)", font=dict(color="#A0A8C0")),
                 xaxis=dict(gridcolor="#2E3140", linecolor="#2E3140"),
                 yaxis=dict(gridcolor="#2E3140", linecolor="#2E3140"),
                 margin=dict(t=60, b=40),
             )
             st.plotly_chart(fig, use_container_width=True)
 
-        with tab2:
-            st.dataframe(
-                processed_df.sort_values("Date", ascending=False),
-                use_container_width=True,
-                hide_index=True,
-            )
+        # ── Measurements table ────────────────────────────────────────────────
+        with tab_meas:
+            if meas.empty:
+                st.info("Inga mätningar tillagda ännu. Använd '➕ Lägg till mätning' i menyn.")
+            else:
+                display = meas.copy()
+                display["Date"] = display["Date"].dt.strftime("%Y-%m-%d")
+                st.dataframe(display, use_container_width=True, hide_index=True)
+
+                st.markdown("**Ta bort mätningar**")
+                date_source_labels = [
+                    f"{row['Date'].strftime('%Y-%m-%d')} — {row['Source']}"
+                    for _, row in meas.iterrows()
+                ]
+                to_delete = st.multiselect("Välj rader att ta bort", date_source_labels, key="meas_delete_select")
+                col_del, col_clear = st.columns([1, 1])
+                with col_del:
+                    if to_delete and st.button("🗑 Ta bort valda", key="del_meas_selected"):
+                        indices = [date_source_labels.index(lbl) for lbl in to_delete]
+                        updated = meas.drop(meas.index[indices]).reset_index(drop=True)
+                        st.session_state.measurements = updated
+                        save_measurements(user_id, updated)
+                        st.rerun()
+                with col_clear:
+                    if st.button("🗑 Rensa alla", key="del_meas_all"):
+                        empty_df = pd.DataFrame(columns=["Date", "Source", "BodyFatPct", "Waist", "Neck", "Hip"])
+                        st.session_state.measurements = empty_df
+                        save_measurements(user_id, empty_df)
+                        st.rerun()
+
+        # ── Garmin data table ─────────────────────────────────────────────────
+        with tab_garmin:
+            gdf = st.session_state.data
+            if gdf is None or gdf.empty:
+                st.info("Ingen Garmin-data importerad ännu.")
+            else:
+                st.caption(f"{len(gdf)} datapunkter · {gdf['Date'].min().date()} → {gdf['Date'].max().date()}")
+
+                # Date filter
+                col_f1, col_f2 = st.columns(2)
+                with col_f1:
+                    filter_from = st.date_input("Från", gdf["Date"].min().date(), key="g_from")
+                with col_f2:
+                    filter_to = st.date_input("Till", gdf["Date"].max().date(), key="g_to")
+
+                mask = (gdf["Date"].dt.date >= filter_from) & (gdf["Date"].dt.date <= filter_to)
+                gdf_filtered = gdf[mask].copy()
+                gdf_filtered["Date"] = gdf_filtered["Date"].dt.strftime("%Y-%m-%d")
+                st.dataframe(gdf_filtered, use_container_width=True, hide_index=True)
+
+                st.markdown("**Ta bort datapunkter**")
+                g_dates = gdf[mask]["Date"].dt.strftime("%Y-%m-%d").tolist()
+                g_to_delete = st.multiselect("Välj datum att ta bort", g_dates, key="garmin_delete_select")
+                if g_to_delete and st.button("🗑 Ta bort valda Garmin-rader"):
+                    delete_garmin_rows(user_id, g_to_delete)
+                    st.session_state.data = load_garmin_data(user_id)
+                    st.rerun()
+
 else:
     st.markdown("""
     <div style="text-align:center;padding:80px 20px;color:#4A5070;">
         <div style="font-size:4rem;">🏃</div>
         <h2 style="color:#6B7494;font-weight:400;">Ingen data ännu</h2>
-        <p>Logga in på Garmin eller ladda upp en CSV-fil i menyn till vänster.</p>
+        <p>Importera från Garmin eller ladda upp en CSV-fil i menyn till vänster.</p>
     </div>
     """, unsafe_allow_html=True)

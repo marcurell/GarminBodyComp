@@ -57,17 +57,28 @@ def _blob(user_id: str, path: str):
 
 
 # --- Measurements -----------------------------------------------------------
+# Schema: Date, Source ("Navy"|"DEXA"|"BodyPod"), BodyFatPct, Waist, Neck, Hip
+# Navy rows: Waist/Neck/Hip filled; BodyFatPct is calculated by logic.py
+# DEXA/BodyPod rows: BodyFatPct filled; Waist/Neck/Hip are NaN
+
+_MEAS_COLS = ["Date", "Source", "BodyFatPct", "Waist", "Neck", "Hip"]
+
 
 def load_measurements(user_id: str) -> pd.DataFrame:
-    empty = pd.DataFrame(columns=["Date", "Waist", "Neck", "Hip"])
+    empty = pd.DataFrame(columns=_MEAS_COLS)
     try:
         data = _blob(user_id, "measurements.csv").download_blob().readall()
         df = pd.read_csv(io.BytesIO(data))
         df["Date"] = pd.to_datetime(df["Date"])
+        # Backward compat: old schema had no Source/BodyFatPct columns
+        if "Source" not in df.columns:
+            df["Source"] = "Navy"
+        if "BodyFatPct" not in df.columns:
+            df["BodyFatPct"] = float("nan")
         for col in ["Waist", "Neck", "Hip"]:
             if col not in df.columns:
-                df[col] = 0
-        return df
+                df[col] = float("nan")
+        return df[_MEAS_COLS].sort_values("Date").reset_index(drop=True)
     except Exception:
         return empty
 
@@ -95,6 +106,19 @@ def save_garmin_data(user_id: str, df: pd.DataFrame) -> None:
         combined = df.sort_values("Date").reset_index(drop=True)
     buf = io.BytesIO()
     combined.to_csv(buf, index=False)
+    buf.seek(0)
+    _blob(user_id, "garmin_data.csv").upload_blob(buf, overwrite=True)
+
+
+def delete_garmin_rows(user_id: str, dates: list) -> None:
+    """Remove specific dates from garmin_data.csv."""
+    df = load_garmin_data(user_id)
+    if df is None or df.empty:
+        return
+    date_set = set(pd.to_datetime(dates).normalize())
+    df = df[~df["Date"].dt.normalize().isin(date_set)]
+    buf = io.BytesIO()
+    df.to_csv(buf, index=False)
     buf.seek(0)
     _blob(user_id, "garmin_data.csv").upload_blob(buf, overwrite=True)
 
