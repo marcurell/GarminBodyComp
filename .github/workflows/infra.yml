@@ -39,6 +39,14 @@ jobs:
             googleClientSecret=${{ secrets.GOOGLE_CLIENT_SECRET }}
           failOnStdErr: false
 
+      - name: Deploy SWA Bicep
+        uses: azure/arm-deploy@a1361c2781ef5767c606084053190b76f4b7b7c2  # v2.0.0
+        with:
+          subscriptionId: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          resourceGroupName: ${{ secrets.AZURE_RESOURCE_GROUP }}
+          template: infra/swa.bicep
+          failOnStdErr: false
+
       - name: Deploy API Bicep
         uses: azure/arm-deploy@a1361c2781ef5767c606084053190b76f4b7b7c2  # v2.0.0
         with:
