@@ -6,3 +6,6 @@ garminconnect>=0.2.0
 azure-storage-blob>=12.20.0
 azure-identity>=1.17.0
 cryptography>=42.0.0
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+python-multipart>=0.0.9

@@ -1,7 +1,6 @@
-import os
-import re
-
 import streamlit as st
+
+from modules.auth_core import sanitize_user_id, check_allowed
 
 # ---------------------------------------------------------------------------
 # Auth module — delegates entirely to Azure Easy Auth (Google OAuth).
@@ -12,6 +11,7 @@ import streamlit as st
 # ALLOWED_EMAILS env var (comma-separated). Leave unset to allow any
 # Google account that reaches the app.
 # ---------------------------------------------------------------------------
+
 
 def require_login() -> None:
     """Verify Azure Easy Auth identity is present and on the allowlist."""
@@ -31,16 +31,13 @@ def require_login() -> None:
         """, unsafe_allow_html=True)
         st.stop()
 
-    allowed_raw = os.environ.get("ALLOWED_EMAILS", "")
-    if allowed_raw:
-        allowed = {e.strip().lower() for e in allowed_raw.split(",") if e.strip()}
-        if user not in allowed:
-            st.error("Du har inte behörighet att använda denna app.")
-            st.markdown(
-                '<a href="/.auth/logout" target="_self">Logga ut</a>',
-                unsafe_allow_html=True,
-            )
-            st.stop()
+    if not check_allowed(user):
+        st.error("Du har inte behörighet att använda denna app.")
+        st.markdown(
+            '<a href="/.auth/logout" target="_self">Logga ut</a>',
+            unsafe_allow_html=True,
+        )
+        st.stop()
 
     st.session_state["user_id"] = user
 
@@ -68,15 +65,7 @@ def _get_user_from_header() -> str:
         headers = st.context.headers
         raw = headers.get("X-Ms-Client-Principal-Name", "")
         if raw:
-            return _sanitize_user_id(raw)
+            return sanitize_user_id(raw)
     except Exception:
         pass
     return ""
-
-
-def _sanitize_user_id(raw: str) -> str:
-    """Normalize email to a safe, stable blob path segment.
-    Keeps @ and . so existing data paths are preserved.
-    e.g. Lars@JoyYoga.SE -> lars@joyyoga.se
-    """
-    return re.sub(r"[^a-z0-9@._\-]", "_", raw.lower())

@@ -27,7 +27,7 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Deploy Bicep
+      - name: Deploy main Bicep
         uses: azure/arm-deploy@a1361c2781ef5767c606084053190b76f4b7b7c2  # v2.0.0
         with:
           subscriptionId: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
@@ -35,6 +35,17 @@ jobs:
           template: infra/main.bicep
           parameters: >
             tokenEncryptionKey=${{ secrets.TOKEN_ENCRYPTION_KEY }}
+            googleClientId=${{ secrets.GOOGLE_CLIENT_ID }}
+            googleClientSecret=${{ secrets.GOOGLE_CLIENT_SECRET }}
+          failOnStdErr: false
+
+      - name: Deploy API Bicep
+        uses: azure/arm-deploy@a1361c2781ef5767c606084053190b76f4b7b7c2  # v2.0.0
+        with:
+          subscriptionId: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          resourceGroupName: ${{ secrets.AZURE_RESOURCE_GROUP }}
+          template: infra/api.bicep
+          parameters: >
             googleClientId=${{ secrets.GOOGLE_CLIENT_ID }}
             googleClientSecret=${{ secrets.GOOGLE_CLIENT_SECRET }}
           failOnStdErr: false
