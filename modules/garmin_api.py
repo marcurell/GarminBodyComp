@@ -84,12 +84,17 @@ def fetch_garmin_data(email: str, password: str, days_back: int = 30, user_id: s
                 raw_date = entry.get("date") or entry.get("startDate")
                 if not raw_date or not w:
                     continue
-                # Garmin API returns ms-epoch integers or ISO date strings
-                if isinstance(raw_date, (int, float)):
-                    parsed_date = pd.to_datetime(raw_date, unit="ms")
-                else:
-                    parsed_date = pd.to_datetime(raw_date, errors="coerce")
-                if pd.isna(parsed_date):
+                try:
+                    # Garmin returns ms-epoch integers, string-integers, or ISO date strings
+                    if isinstance(raw_date, (int, float)):
+                        parsed_date = pd.to_datetime(int(raw_date), unit="ms")
+                    elif isinstance(raw_date, str) and raw_date.strip().lstrip("-").isdigit():
+                        parsed_date = pd.to_datetime(int(raw_date), unit="ms")
+                    else:
+                        parsed_date = pd.to_datetime(raw_date, errors="coerce")
+                    if pd.isna(parsed_date) or parsed_date.year < 2000:
+                        continue
+                except Exception:
                     continue
                 data_rows.append({
                     "Date": parsed_date,

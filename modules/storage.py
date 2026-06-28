@@ -114,6 +114,13 @@ def save_garmin_data(user_id: str, df: pd.DataFrame) -> None:
     _blob(user_id, "garmin_data.csv").upload_blob(buf, overwrite=True)
 
 
+def clear_garmin_data(user_id: str) -> None:
+    try:
+        _blob(user_id, "garmin_data.csv").delete_blob()
+    except Exception:
+        pass
+
+
 def delete_garmin_rows(user_id: str, dates: list) -> None:
     """Remove specific dates from garmin_data.csv."""
     df = load_garmin_data(user_id)

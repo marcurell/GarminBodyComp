@@ -140,7 +140,7 @@ try:
     from modules.auth import require_login, get_current_user, logout_button
     from modules.storage import (
         load_measurements, save_measurements,
-        load_garmin_data, save_garmin_data, delete_garmin_rows,
+        load_garmin_data, save_garmin_data, delete_garmin_rows, clear_garmin_data,
         load_profile, save_profile,
     )
 except ImportError as e:
@@ -424,10 +424,17 @@ if st.session_state.data is not None:
                 st.markdown("**Ta bort datapunkter**")
                 g_dates = gdf[mask]["Date"].dt.strftime("%Y-%m-%d").tolist()
                 g_to_delete = st.multiselect("Välj datum att ta bort", g_dates, key="garmin_delete_select")
-                if g_to_delete and st.button("🗑 Ta bort valda Garmin-rader"):
-                    delete_garmin_rows(user_id, g_to_delete)
-                    st.session_state.data = load_garmin_data(user_id)
-                    st.rerun()
+                col_gdel, col_gclear = st.columns([2, 1])
+                with col_gdel:
+                    if g_to_delete and st.button("🗑 Ta bort valda rader"):
+                        delete_garmin_rows(user_id, g_to_delete)
+                        st.session_state.data = load_garmin_data(user_id)
+                        st.rerun()
+                with col_gclear:
+                    if st.button("🗑 Rensa all Garmin-data"):
+                        clear_garmin_data(user_id)
+                        st.session_state.data = None
+                        st.rerun()
 
 else:
     st.markdown("""
