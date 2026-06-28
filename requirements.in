@@ -1,0 +1,8 @@
+streamlit>=1.39.0
+pandas>=2.0.0
+numpy>=1.26.0
+plotly>=5.18.0
+garminconnect>=0.2.0
+azure-storage-blob>=12.20.0
+azure-identity>=1.17.0
+cryptography>=42.0.0

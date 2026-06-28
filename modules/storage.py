@@ -168,6 +168,15 @@ def save_profile(user_id: str, profile: dict) -> None:
 TOKEN_FILES = ["oauth1_token.json", "oauth2_token.json"]
 
 
+def has_garmin_tokens(user_id: str) -> bool:
+    """Return True if at least one OAuth token file exists in blob."""
+    try:
+        _blob(user_id, "garmin_tokens/oauth2_token.json").get_blob_properties()
+        return True
+    except Exception:
+        return False
+
+
 def download_tokens(user_id: str, local_dir: str) -> bool:
     """Download and decrypt stored tokens to a local temp dir. Returns True if found."""
     os.makedirs(local_dir, mode=0o700, exist_ok=True)

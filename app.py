@@ -141,7 +141,7 @@ try:
     from modules.storage import (
         load_measurements, save_measurements,
         load_garmin_data, save_garmin_data, delete_garmin_rows, clear_garmin_data,
-        load_profile, save_profile,
+        load_profile, save_profile, has_garmin_tokens,
     )
 except ImportError as e:
     st.error("Kritiskt fel: Kunde inte ladda moduler. Kontakta admin.")
@@ -168,6 +168,29 @@ if "profile" not in st.session_state:
 @st.cache_data(ttl=3600)
 def cached_triangulation(df, meas, height, gender):
     return run_triangulation(df, meas, height, gender)
+
+
+# ── Auto-sync Garmin data ─────────────────────────────────────────────────────
+# Runs once per session. If stored tokens exist and newest data is >24h old,
+# silently refresh in the background using saved OAuth tokens (no password needed).
+if "auto_synced" not in st.session_state:
+    st.session_state.auto_synced = True
+    gdf = st.session_state.data
+    needs_sync = (
+        has_garmin_tokens(user_id)
+        and (
+            gdf is None
+            or gdf.empty
+            or (pd.Timestamp.now() - gdf["Date"].max()).days >= 1
+        )
+    )
+    if needs_sync:
+        with st.spinner("Synkroniserar Garmin-data..."):
+            df_new, _ = fetch_garmin_data("", "", 30, user_id)
+            if df_new is not None:
+                cleaned = clean_and_map_columns(df_new)
+                save_garmin_data(user_id, cleaned)
+                st.session_state.data = load_garmin_data(user_id)
 
 MAX_CSV_BYTES = 10 * 1024 * 1024
 
