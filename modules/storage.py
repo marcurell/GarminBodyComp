@@ -84,10 +84,14 @@ def load_measurements(user_id: str) -> pd.DataFrame:
 
 
 def save_measurements(user_id: str, df: pd.DataFrame) -> None:
-    buf = io.BytesIO()
-    df.to_csv(buf, index=False)
-    buf.seek(0)
-    _blob(user_id, "measurements.csv").upload_blob(buf, overwrite=True)
+    try:
+        buf = io.BytesIO()
+        df.to_csv(buf, index=False)
+        buf.seek(0)
+        _blob(user_id, "measurements.csv").upload_blob(buf, overwrite=True)
+    except Exception:
+        logger.exception("Failed to save measurements for %s", user_id)
+        raise RuntimeError("Kunde inte spara mätningar. Försök igen.")
 
 
 # --- Garmin body composition data -------------------------------------------
@@ -144,8 +148,12 @@ def load_profile(user_id: str) -> dict:
 
 
 def save_profile(user_id: str, profile: dict) -> None:
-    buf = io.BytesIO(json.dumps(profile).encode())
-    _blob(user_id, "profile.json").upload_blob(buf, overwrite=True)
+    try:
+        buf = io.BytesIO(json.dumps(profile).encode())
+        _blob(user_id, "profile.json").upload_blob(buf, overwrite=True)
+    except Exception:
+        logger.exception("Failed to save profile for %s", user_id)
+        raise RuntimeError("Kunde inte spara profil. Försök igen.")
 
 
 # --- Garmin tokens (encrypted at rest) --------------------------------------

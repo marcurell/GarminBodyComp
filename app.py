@@ -105,7 +105,6 @@ st.markdown("""
         padding: 20px 24px;
         border-radius: 12px;
         background: linear-gradient(135deg, #1a2a3a 0%, #1C1E26 100%);
-        border-left: 4px solid #1DB9E8;
         border: 1px solid #2E3140;
         border-left: 4px solid #1DB9E8;
     }
@@ -290,9 +289,7 @@ with st.sidebar:
 if st.session_state.data is not None:
     df       = st.session_state.data
     meas     = st.session_state.measurements
-    navy_meas = meas[meas["Source"] == "Navy"].rename(
-        columns={"Waist": "Waist", "Neck": "Neck", "Hip": "Hip"}
-    )[["Date", "Waist", "Neck", "Hip"]].copy()
+    navy_meas = meas[meas["Source"] == "Navy"][["Date", "Waist", "Neck", "Hip"]].copy()
     ref_meas  = meas[meas["Source"].isin(["DEXA", "BodyPod"])].copy()
 
     if navy_meas.empty and ref_meas.empty:

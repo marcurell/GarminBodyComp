@@ -3,14 +3,25 @@ import pandas as pd
 
 def calculate_navy_fat(height_cm, waist_cm, neck_cm, hip_cm=0, gender='Man'):
     """US Navy Method Formula."""
+    if height_cm <= 0 or waist_cm <= 0 or neck_cm <= 0:
+        return np.nan
     if gender == 'Man':
-        return 495 / (1.0324 - 0.19077 * np.log10(waist_cm - neck_cm) + 0.15456 * np.log10(height_cm)) - 450
+        diff = waist_cm - neck_cm
+        if diff <= 0:
+            return np.nan
+        return 495 / (1.0324 - 0.19077 * np.log10(diff) + 0.15456 * np.log10(height_cm)) - 450
     else:
-        if hip_cm == 0: hip_cm = waist_cm * 1.15
-        return 495 / (1.29579 - 0.35004 * np.log10(waist_cm + hip_cm - neck_cm) + 0.22100 * np.log10(height_cm)) - 450
+        if hip_cm == 0:
+            hip_cm = waist_cm * 1.15
+        diff = waist_cm + hip_cm - neck_cm
+        if diff <= 0:
+            return np.nan
+        return 495 / (1.29579 - 0.35004 * np.log10(diff) + 0.22100 * np.log10(height_cm)) - 450
 
 def calculate_rfm(height_cm, waist_cm, gender='Man'):
     """Relative Fat Mass (RFM)."""
+    if height_cm <= 0 or waist_cm <= 0:
+        return np.nan
     if gender == 'Man':
         return 64 - (20 * (height_cm / waist_cm))
     else:
@@ -62,6 +73,9 @@ def run_triangulation(df, measurements, height_cm, gender='Man'):
     # Consensus Model: 80% Navy, 20% RFM
     df['Model_Consensus'] = (df['Navy_Fat_Pct'] * 0.8) + (df['RFM_Fat_Pct'] * 0.2)
     
+    if 'fat_pct' not in df.columns:
+        raise ValueError("Garmin-data saknar kolumnen 'fat_pct'. Kontrollera importerad data.")
+
     # Garmin Smoothing (Ta bort dagsbrus)
     df['Garmin_Smoothed'] = df['fat_pct'].ewm(span=7).mean()
     

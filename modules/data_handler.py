@@ -1,38 +1,7 @@
-import pandas as pd
 import re
+
 import numpy as np
-import os
-
-# --- DATABAS-FUNKTIONER ---
-DB_FILE = "measurements_db.csv"
-
-def load_measurements_db():
-    """Laddar sparade mått från disk om filen finns."""
-    if os.path.exists(DB_FILE):
-        try:
-            df = pd.read_csv(DB_FILE)
-            df['Date'] = pd.to_datetime(df['Date'])
-            
-            required_cols = ['Date', 'Waist', 'Neck', 'Hip']
-            for col in required_cols:
-                if col not in df.columns:
-                    df[col] = 0 if col == 'Hip' else (90 if col == 'Waist' else 40)
-            
-            return df
-        except Exception as e:
-            print(f"Kunde inte ladda databas: {e}")
-            return pd.DataFrame(columns=['Date', 'Waist', 'Neck', 'Hip'])
-    else:
-        return pd.DataFrame(columns=['Date', 'Waist', 'Neck', 'Hip'])
-
-def save_measurements_db(df):
-    """Sparar mått till disk."""
-    try:
-        df.to_csv(DB_FILE, index=False)
-        return True
-    except Exception as e:
-        print(f"Kunde inte spara databas: {e}")
-        return False
+import pandas as pd
 
 # --- PARSING & STÄDNING ---
 def parse_garmin_custom_csv(file_content):

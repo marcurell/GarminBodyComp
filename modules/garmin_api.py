@@ -1,6 +1,6 @@
 from garminconnect import Garmin
 import pandas as pd
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 import os
 import tempfile
 import logging
@@ -15,8 +15,7 @@ _login_attempts: list = []
 
 
 def _check_rate_limit() -> bool:
-    from datetime import datetime, timedelta
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     cutoff = now - timedelta(minutes=5)
     _login_attempts[:] = [t for t in _login_attempts if t > cutoff]
     if len(_login_attempts) >= 5:
@@ -82,12 +81,21 @@ def fetch_garmin_data(email: str, password: str, days_back: int = 30, user_id: s
                 f = float(entry.get("bodyFat") or 0)
                 wa = float(entry.get("bodyWater") or 0)
 
-                if w > 0:
-                    data_rows.append({
-                        "Date": pd.to_datetime(entry.get("date") or entry.get("startDate")),
-                        "weight_kg": w, "bone_kg": b, "muscle_kg": m,
-                        "fat_pct": f, "water_pct": wa,
-                    })
+                raw_date = entry.get("date") or entry.get("startDate")
+                if not raw_date or not w:
+                    continue
+                # Garmin API returns ms-epoch integers or ISO date strings
+                if isinstance(raw_date, (int, float)):
+                    parsed_date = pd.to_datetime(raw_date, unit="ms")
+                else:
+                    parsed_date = pd.to_datetime(raw_date, errors="coerce")
+                if pd.isna(parsed_date):
+                    continue
+                data_rows.append({
+                    "Date": parsed_date,
+                    "weight_kg": w, "bone_kg": b, "muscle_kg": m,
+                    "fat_pct": f, "water_pct": wa,
+                })
 
         df = pd.DataFrame(data_rows)
         if df.empty:
@@ -95,5 +103,5 @@ def fetch_garmin_data(email: str, password: str, days_back: int = 30, user_id: s
         return df, None
 
     except Exception as e:
-        logger.error("Garmin API call failed: %s", type(e).__name__, exc_info=True)
+        logger.error("Garmin API call failed: %s", type(e).__name__)
         return None, "Fel vid hämtning från Garmin. Försök igen."

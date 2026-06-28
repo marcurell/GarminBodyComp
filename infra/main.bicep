@@ -66,6 +66,7 @@ resource appService 'Microsoft.Web/sites@2023-01-01' = {
     siteConfig: {
       linuxFxVersion: 'PYTHON|3.11'
       appCommandLine: 'python -m streamlit run app.py --server.port 8000 --server.address 0.0.0.0 --server.headless true'
+      healthCheckPath: '/_stcore/health'
       appSettings: [
         { name: 'WEBSITES_PORT',                          value: '8000' }
         { name: 'SCM_DO_BUILD_DURING_DEPLOYMENT',         value: 'true' }
@@ -87,7 +88,7 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
     tenantId: subscription().tenantId
     enableRbacAuthorization: true
     enableSoftDelete: true
-    softDeleteRetentionInDays: 7
+    softDeleteRetentionInDays: 30
   }
 
   resource secretTokenKey 'secrets' = {

@@ -1,3 +1,6 @@
+import os
+import re
+
 import streamlit as st
 
 # ---------------------------------------------------------------------------
@@ -9,8 +12,6 @@ import streamlit as st
 # ALLOWED_EMAILS env var (comma-separated). Leave unset to allow any
 # Google account that reaches the app.
 # ---------------------------------------------------------------------------
-
-import os
 
 def require_login() -> None:
     """Verify Azure Easy Auth identity is present and on the allowlist."""
@@ -45,17 +46,18 @@ def require_login() -> None:
 
 
 def get_current_user() -> str:
-    if "user_id" not in st.session_state:
-        user = _get_user_from_header()
-        st.session_state["user_id"] = user or ""
-    return st.session_state["user_id"]
+    user = st.session_state.get("user_id", "")
+    if not user:
+        raise RuntimeError("get_current_user() called before require_login()")
+    return user
 
 
 def logout_button() -> None:
-    # Azure Easy Auth logout endpoint clears the session cookie
     st.sidebar.markdown(
-        '<a href="/.auth/logout" target="_self">'
-        '<button style="width:100%">Logga ut</button></a>',
+        '<a href="/.auth/logout" target="_self" style="display:block;width:100%;'
+        'background:#1DB9E8;color:#000;padding:8px 20px;border-radius:8px;'
+        'font-weight:600;text-decoration:none;font-size:0.9rem;text-align:center;">'
+        'Logga ut</a>',
         unsafe_allow_html=True,
     )
 
@@ -77,5 +79,4 @@ def _sanitize_user_id(raw: str) -> str:
     Keeps @ and . so existing data paths are preserved.
     e.g. Lars@JoyYoga.SE -> lars@joyyoga.se
     """
-    import re
     return re.sub(r"[^a-z0-9@._\-]", "_", raw.lower())
