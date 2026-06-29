@@ -42,7 +42,9 @@ resource apiService 'Microsoft.Web/sites@2023-01-01' = {
     serverFarmId: appServicePlan.id
     siteConfig: {
       linuxFxVersion: 'PYTHON|3.11'
-      appCommandLine: 'uvicorn api.main:app --host 0.0.0.0 --port 8000'
+      // 'python -m uvicorn' (not the bare 'uvicorn' console script) so the app
+      // directory /home/site/wwwroot is on sys.path and 'api' is importable.
+      appCommandLine: 'python -m uvicorn api.main:app --host 0.0.0.0 --port 8000'
       healthCheckPath: '/health'
       appSettings: [
         { name: 'WEBSITES_PORT',                  value: '8000' }
