@@ -53,9 +53,10 @@ def parse_garmin_custom_csv(file_content):
 def clean_and_map_columns(df):
     """Standardiserar kolumnnamn oavsett källa (CSV eller API)."""
     df.columns = df.columns.str.strip().str.replace('"', '').str.replace("'", "")
-    
-    # HÄR VAR FELET: Jag har lagt till de "rena" namnen (t.ex. weight_kg) i listan
-    # så att de identifieras och behålls.
+
+    # Each internal column name maps to the aliases it can appear as. The clean
+    # names (e.g. "weight_kg") are listed first so already-standardised data
+    # (from the API path) is recognised and kept as-is.
     column_mapping = {
         'weight_kg': ['weight_kg', 'Weight', 'Vikt', 'Weight (kg)', 'Vikt (kg)'],
         'bone_kg': ['bone_kg', 'Bone Mass', 'Benmassa', 'Benmassa (kg)'],

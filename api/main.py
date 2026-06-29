@@ -1,6 +1,6 @@
 import os
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.errors import ProblemDetailException, problem_detail_handler
@@ -13,6 +13,20 @@ app = FastAPI(
     redoc_url="/v1/redoc",
     openapi_url="/v1/openapi.json",
 )
+
+
+@app.middleware("http")
+async def strip_api_prefix(request: Request, call_next):
+    """Normalise away a leading '/api' segment.
+
+    When the Static Web App proxies '/api/v1/...' to this linked backend it may
+    forward the '/api' prefix. Stripping it here lets the '/v1/...' routes match
+    whether the request arrives via SWA ('/api/v1/me') or directly ('/v1/me').
+    """
+    path = request.scope["path"]
+    if path == "/api" or path.startswith("/api/"):
+        request.scope["path"] = path[len("/api"):] or "/"
+    return await call_next(request)
 
 _default_origins = "https://garminbodycomp.azurewebsites.net"
 origins = [o.strip() for o in os.environ.get("ALLOWED_ORIGINS", _default_origins).split(",") if o.strip()]

@@ -12,6 +12,9 @@ param googleClientId string
 @description('Google OAuth Client Secret')
 param googleClientSecret string
 
+@description('Comma-separated allow-list of emails permitted to use the API')
+param allowedEmails string = 'lars@joyyoga.se'
+
 var planName = '${appName}-plan'
 var apiSiteName = '${appName}-api'
 var storageAccountName = replace(toLower(appName), '-', '')
@@ -45,8 +48,9 @@ resource apiService 'Microsoft.Web/sites@2023-01-01' = {
         { name: 'WEBSITES_PORT',              value: '8000' }
         { name: 'SCM_DO_BUILD_DURING_DEPLOYMENT', value: 'true' }
         { name: 'AZURE_STORAGE_ACCOUNT_NAME', value: storageAccountName }
-        { name: 'TOKEN_ENCRYPTION_KEY',       value: '@Microsoft.KeyVault(SecretUri=${keyVault::secretTokenKey.properties.secretUri})' }
-        { name: 'GOOGLE_PROVIDER_AUTHENTICATION_SECRET', value: '@Microsoft.KeyVault(SecretUri=${keyVault::secretGoogleClientSecret.properties.secretUri})' }
+        { name: 'ALLOWED_EMAILS',             value: allowedEmails }
+        { name: 'TOKEN_ENCRYPTION_KEY',       value: '@Microsoft.KeyVault(SecretUri=${secretTokenKey.properties.secretUri})' }
+        { name: 'GOOGLE_PROVIDER_AUTHENTICATION_SECRET', value: '@Microsoft.KeyVault(SecretUri=${secretGoogleClientSecret.properties.secretUri})' }
       ]
     }
     httpsOnly: true
@@ -86,35 +90,33 @@ resource apiStorageBlobRole 'Microsoft.Authorization/roleAssignments@2022-04-01'
   }
 }
 
-// ── Easy Auth — require authentication, return 401 (not redirect) ──────────
-// Mobile clients expect 401 JSON, not 302 HTML redirect
+// ── Easy Auth DISABLED ─────────────────────────────────────────────────────
+// The Static Web App is the authentication layer. It forwards the signed-in
+// user to this backend via the `x-ms-client-principal` header (decoded in
+// api/dependencies.py). App Service Easy Auth would STRIP that header if it
+// were enabled, so it is turned off here. Identity is still enforced in code
+// (a missing principal → 401) and gated by the ALLOWED_EMAILS allow-list.
+// The google params are retained so Easy Auth can be re-enabled later without
+// re-plumbing secrets.
 resource apiAuthSettings 'Microsoft.Web/sites/config@2023-01-01' = {
   parent: apiService
   name: 'authsettingsV2'
   properties: {
+    platform: {
+      enabled: false
+    }
     globalValidation: {
-      requireAuthentication: true
-      unauthenticatedClientAction: 'Return401'
+      requireAuthentication: false
+      unauthenticatedClientAction: 'AllowAnonymous'
     }
     identityProviders: {
       google: {
-        enabled: true
+        enabled: false
         registration: {
           clientId: googleClientId
           clientSecretSettingName: 'GOOGLE_PROVIDER_AUTHENTICATION_SECRET'
         }
-        login: {
-          scopes: ['openid', 'profile', 'email']
-        }
       }
-    }
-    login: {
-      tokenStore: {
-        enabled: true
-      }
-    }
-    httpSettings: {
-      requireHttps: true
     }
   }
 }

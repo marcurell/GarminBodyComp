@@ -69,20 +69,25 @@ def fetch_garmin_data(email: str, password: str, days_back: int = 30, user_id: s
         data_rows = []
         if "dateWeightList" in stats:
             for entry in stats["dateWeightList"]:
-                w = float(entry.get("weight") or 0)
-                if w > 200: w /= 1000.0
+                # Garmin sometimes reports mass in grams instead of kg; values
+                # above a plausible ceiling for each metric are scaled back down.
+                weight = float(entry.get("weight") or 0)
+                if weight > 200:
+                    weight /= 1000.0
 
-                b = float(entry.get("boneMass") or 0)
-                if b > 20: b /= 1000.0
+                bone = float(entry.get("boneMass") or 0)
+                if bone > 20:
+                    bone /= 1000.0
 
-                m = float(entry.get("muscleMass") or 0)
-                if m > 100: m /= 1000.0
+                muscle = float(entry.get("muscleMass") or 0)
+                if muscle > 100:
+                    muscle /= 1000.0
 
-                f = float(entry.get("bodyFat") or 0)
-                wa = float(entry.get("bodyWater") or 0)
+                fat_pct = float(entry.get("bodyFat") or 0)
+                water_pct = float(entry.get("bodyWater") or 0)
 
                 raw_date = entry.get("date") or entry.get("startDate")
-                if not raw_date or not w:
+                if not raw_date or not weight:
                     continue
                 try:
                     # Garmin returns ms-epoch integers, string-integers, or ISO date strings
@@ -92,14 +97,15 @@ def fetch_garmin_data(email: str, password: str, days_back: int = 30, user_id: s
                         parsed_date = pd.to_datetime(int(raw_date), unit="ms")
                     else:
                         parsed_date = pd.to_datetime(raw_date, errors="coerce")
+                    # Reject epoch artefacts (e.g. 1970) that slipped through.
                     if pd.isna(parsed_date) or parsed_date.year < 2000:
                         continue
                 except Exception:
                     continue
                 data_rows.append({
                     "Date": parsed_date,
-                    "weight_kg": w, "bone_kg": b, "muscle_kg": m,
-                    "fat_pct": f, "water_pct": wa,
+                    "weight_kg": weight, "bone_kg": bone, "muscle_kg": muscle,
+                    "fat_pct": fat_pct, "water_pct": water_pct,
                 })
 
         df = pd.DataFrame(data_rows)

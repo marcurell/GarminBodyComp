@@ -97,7 +97,7 @@ def save_measurements(user_id: str, df: pd.DataFrame) -> None:
 # --- Garmin body composition data -------------------------------------------
 
 def save_garmin_data(user_id: str, df: pd.DataFrame) -> None:
-    """Merge new data with existing, keeping latest record per date."""
+    """Merge new data with existing, keeping the latest record per date."""
     existing = load_garmin_data(user_id)
     if existing is not None and not existing.empty:
         combined = (
@@ -108,10 +108,14 @@ def save_garmin_data(user_id: str, df: pd.DataFrame) -> None:
         )
     else:
         combined = df.sort_values("Date").reset_index(drop=True)
-    buf = io.BytesIO()
-    combined.to_csv(buf, index=False)
-    buf.seek(0)
-    _blob(user_id, "garmin_data.csv").upload_blob(buf, overwrite=True)
+    try:
+        buf = io.BytesIO()
+        combined.to_csv(buf, index=False)
+        buf.seek(0)
+        _blob(user_id, "garmin_data.csv").upload_blob(buf, overwrite=True)
+    except Exception:
+        logger.exception("Failed to save Garmin data for %s", user_id)
+        raise RuntimeError("Kunde inte spara Garmin-data. Försök igen.")
 
 
 def clear_garmin_data(user_id: str) -> None:

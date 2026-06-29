@@ -1,9 +1,20 @@
+from typing import Optional
+
 from fastapi import Request
 from fastapi.responses import JSONResponse
 
 
 class ProblemDetailException(Exception):
-    def __init__(self, status: int, title: str, detail: str, instance: str = None):
+    """Raised by routers to return an RFC 7807 'application/problem+json' error.
+
+    status   HTTP status code (also echoed in the body)
+    title    short, human-readable summary of the problem type
+    detail   explanation specific to this occurrence
+    instance optional URI/path identifying the specific occurrence
+    """
+
+    def __init__(self, status: int, title: str, detail: str, instance: Optional[str] = None):
+        super().__init__(detail)
         self.status = status
         self.title = title
         self.detail = detail

@@ -7,7 +7,7 @@ param location string = resourceGroup().location
 
 @description('App Service Plan SKU')
 @allowed(['B1', 'B2', 'S1'])
-param sku string = 'B1'
+param sku string = 'B2'
 
 @secure()
 param tokenEncryptionKey string
