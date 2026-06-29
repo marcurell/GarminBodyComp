@@ -46,9 +46,6 @@ jobs:
           subscriptionId: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           resourceGroupName: ${{ secrets.AZURE_RESOURCE_GROUP }}
           template: infra/api.bicep
-          parameters: >
-            googleClientId=${{ secrets.GOOGLE_CLIENT_ID }}
-            googleClientSecret=${{ secrets.GOOGLE_CLIENT_SECRET }}
           failOnStdErr: false
 
       - name: Deploy SWA Bicep
