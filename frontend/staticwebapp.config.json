@@ -5,20 +5,20 @@
   },
   "routes": [
     {
-      "route": "/api/*",
-      "allowedRoles": ["authenticated"]
-    },
-    {
-      "route": "/*",
-      "allowedRoles": ["authenticated"]
-    },
-    {
       "route": "/.auth/login/aad",
       "allowedRoles": ["anonymous"]
     },
     {
       "route": "/.auth/logout",
       "allowedRoles": ["anonymous"]
+    },
+    {
+      "route": "/api/*",
+      "allowedRoles": ["authenticated"]
+    },
+    {
+      "route": "/*",
+      "allowedRoles": ["authenticated"]
     }
   ],
   "responseOverrides": {
